@@ -1,7 +1,5 @@
 #!/usr/bin/python
 
-# Filename: dm3reader.py
-
 ################################################################################
 ## Python script for parsing GATAN DM3 (DigitalMicrograph) files
 ## and extracting various metadata
@@ -15,9 +13,11 @@
 ## http://microscopies.med.univ-tours.fr/
 ################################################################################
 
-import sys, struct
+import sys, os, time
+import struct
+from PIL import Image
 
-version='0.72'
+version='0.8'
 
 ## constants for encoded data types ##
 
@@ -456,7 +456,7 @@ def storeTag( tagName, tagValue ):
 
 
 ### parse DM3 file ###
-def parseDM3( filename, dump=False ):
+def parseDM3( filename, dump=False, debug=0 ):
 	'''Function parses DM3 file and returns dict with extracted Tags.
 	Dumps Tags in a txt file if 'dump' set to 'True'.'''
 
@@ -484,11 +484,11 @@ def parseDM3( filename, dump=False ):
 		if (not (isDM3 and littleEndian) ):
 			raise NameError("Is_Not_a_DM3_File")
 		
-		if ( debugLevel > 5):
+		if ( debugLevel > 5 or debug > 1):
 			print "Header info.:"
 			print "File version:", version
 			print "lE:", lE
-			print "File size:", FileSize
+			print "File size:", FileSize, "bytes"
 
 		print '%s appears to be a DM3 file' % filename,
 
@@ -530,9 +530,9 @@ def parseDM3( filename, dump=False ):
 		return 0
 	
 
-def getDM3FileInfo( dm3_file, makePGMtn=False, tn_file='dm3tn_temp.pgm' ):
+def getDM3FileInfo( dm3_file, get_tn=True, make_tn=False, tn_file='dm3tn_tmp.png', debug=0 ):
 	'''Extracts useful experiment info from DM3 file and 
-	exports thumbnail to a PGM file if 'makePGMtn' set to 'True'.'''
+	exports thumbnail to a PNG file if 'make_tn' set to 'True'.'''
 	
 	# define useful information
 	info_keys = {
@@ -550,64 +550,75 @@ def getDM3FileInfo( dm3_file, makePGMtn=False, tn_file='dm3tn_temp.pgm' ):
 		}
 		
 	# parse DM3 file
-	tags = parseDM3( dm3_file, dump=False )
+	tags = parseDM3( dm3_file, dump=False, debug=debug )
 
 	# if OK, extract Tags [and thumbnail]
 	if tags:
-		if makePGMtn:
+		if get_tn or make_tn:
+			
+			tnError = False
 			# get thumbnail
 			tn_size = int( tags[ 'root.ImageList.0.ImageData.Data.Size' ] )
 			tn_offset = int( tags[ 'root.ImageList.0.ImageData.Data.Offset' ] )
 			tn_width = int( tags[ 'root.ImageList.0.ImageData.Dimensions.0' ] )
 			tn_height = int( tags[ 'root.ImageList.0.ImageData.Dimensions.1' ] )
 			
-			if ( debugLevel > 0 ):
+			if debug > 0:
 				print "tn data in", dm3_file, "starts at", hex( tn_offset )
-				print "tn dimension:", tn_width, "x", tn_height
+				print "tn size: %sx%s px"%(tn_width,tn_height)
 			
-			if ( (tn_width*tn_height*4) != tn_size ):
-				print "Error: cannot extract thumbnail from", dm3_file
-				sys.exit()
+			if (tn_width*tn_height*4) != tn_size:
+				print "Warning: cannot extract thumbnail from", dm3_file
+				tnError = True
+
+			if not tnError:
+				if debug>1:
+					t1 = time.time()				
+				# access DM3 file
+				try:
+					dm3f = open( dm3_file, 'rb' )
+				except:
+					print "Error accessing DM3 file"
+					sys.exit()
+						
+				# read tn image data
+				dm3f.seek( tn_offset )			
+				rawdata = dm3f.read(tn_width*tn_height*4)
+				dm3f.close()
+	
+				# read as 16-bit LE unsigned integer
+				tn = Image.fromstring( 'F', (tn_width,tn_height), rawdata, 'raw', 'F;32' )
 				
-			# access DM3 file
-			try:
-				dm3 = open( dm3_file, 'rb' )
-			except:
-				print "Error accessing DM3 file"
-				sys.exit()
-		
-			# open PGM file
-			try:
-				pgm_file = open( tn_file, 'w' )
-			except:
-				print 'Error creating PGM output file!'
-				sys.exit()
-			
-			# build plain PGM file header
-			pgm_file.write( "P2 "+str(tn_width)+" "+str(tn_height)+" 255\n" )
-			
-			# read tn image data
-			dm3.seek( tn_offset )
-			for i in range( tn_height ):
-				for ii in range( tn_width ):
-					data_bytes = dm3.read(4)
-					pgm_data = struct.unpack('<L', data_bytes)[0]
-					pgm_data = int( pgm_data/65536 )
-					pgm_file.write( str(pgm_data) + ' ' )
-				pgm_file.write("\n")
-			
-			pgm_file.close()
-			dm3.close()
+				# rescale and convert px data, then save thumbnail
+				tn = tn.point(lambda x: x * (1./65536) + 0)
+				tn = tn.convert('L')
+				
+				if make_tn:
+					tn_file = os.path.splitext(tn_file)[0]+'.png'
+					try:
+						tn.save(tn_file, 'PNG')
+					except:
+						print "Warning: could not save thumbnail."
+	
+				if debug>1:
+					t2 = time.time()
+					print "read/write tn: %.3g s"%(t2-t1)
 
 		# store experiment information
 		infoHash = {}
 		for key, tag in info_keys.items():
 			if tags.has_key( tag ):
 				infoHash[ key ] = tags[ tag ]
-	
+		
+		if get_tn:
+			if tnError:
+				infoHash['tn_size'] = 0	
+			else:
+				infoHash['tn_size'] = tn.size
+				infoHash['tn_mode'] = tn.mode
+				infoHash['tn_data'] = tn.tostring()
+			
 		return infoHash
-	# else, return false value
+	# else, return False value
 	else:
 		return 0
-
-### END dm3reader.py
