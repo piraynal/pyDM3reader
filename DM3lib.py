@@ -17,7 +17,7 @@ import sys, os, time
 import struct
 from PIL import Image
 
-version='0.8'
+version='0.8.1'
 
 ## constants for encoded data types ##
 
@@ -56,7 +56,7 @@ curGroupNameAtLevelX = [ "" for x in range(MAXDEPTH) ]
 curTagAtLevelX = [ "" for x in range(MAXDEPTH) ]
 curTagName = ""
 storedTags = []
-tagHash = {}
+tagDict = {}
 
 ### END init. variables ###
 
@@ -330,9 +330,9 @@ def readStringData(stringSize):
 		if ( debugLevel > 3 ):
 			print "rSD @ " + str( f.tell() ) + "/" + hex( f.tell() ) +" :",
 			
-		## !!! *Unicode* string... convert to latin-1 string
+		## !!! *Unicode* string (UTF-16)... convert to Python unicode str
 		rString = readString(f, stringSize)
-		rString = unicode(rString, "utf_16_le").encode("latin1", "replace")
+		rString = unicode(rString, "utf_16_le")
 
 		if ( debugLevel > 3 ):
 			print rString + "   <"  + repr( rString ) + ">"
@@ -445,10 +445,10 @@ def readStructData( structTypes ):
 	
 	
 def storeTag( tagName, tagValue ):
-	global storedTags, tagHash
-	
-	storedTags.append( str(tagName) + " = " + str(tagValue) )
-	tagHash[ str(tagName) ] = str(tagValue)
+	global storedTags, tagDict
+	# NB: all tag values stored as unicode objects
+	storedTags.append( tagName + " = " + unicode(tagValue) )
+	tagDict[tagName] = unicode(tagValue)
 	
 	
 ### END sub-routines ###
@@ -460,10 +460,9 @@ def parseDM3( filename, dump=False, debug=0 ):
 	'''Function parses DM3 file and returns dict with extracted Tags.
 	Dumps Tags in a txt file if 'dump' set to 'True'.'''
 
-	global f
-
 	try:
 		print "Accessing file... "
+		global f
 		f = open( filename, 'rb' )
 		isDM3 = True
 		## read header (first 3 4-byte int)
@@ -495,9 +494,9 @@ def parseDM3( filename, dump=False, debug=0 ):
 		# set name of root group (contains all data)...
 		curGroupNameAtLevelX[0] = "root"
 		# ... then read it
-		global storedTags, tagHash
+		global storedTags, tagDict
 		storedTags = []
-		tagHash = {}
+		tagDict = {}
 		readTagGroup()
 		
 		f.close()
@@ -506,7 +505,7 @@ def parseDM3( filename, dump=False, debug=0 ):
 		
 		# dump Tags in txt file if requested
 		if dump:
-			dump_file = filename + ".dump.txt"
+			dump_file = filename + ".tagdump.txt"
 			try:
 				log = open( dump_file, 'w' )
 			except:
@@ -517,7 +516,7 @@ def parseDM3( filename, dump=False, debug=0 ):
 			log.close
 	
 		# return Tag list
-		return tagHash
+		return tagDict
 	
 	except IOError:
 		print "Error -- cannot access data file. Terminating."
@@ -528,9 +527,9 @@ def parseDM3( filename, dump=False, debug=0 ):
 	except:
 		print '\n Could not parse %s as a DM3 file' % filename
 		return 0
-	
 
-def getDM3FileInfo( dm3_file, get_tn=True, make_tn=False, tn_file='dm3tn_tmp.png', debug=0 ):
+
+def getDM3FileInfo( dm3_file, get_tn=True, make_tn=False, tn_file='dm3tn_tmp.png', info_charset='latin1', debug=0 ):
 	'''Extracts useful experiment info from DM3 file and 
 	exports thumbnail to a PNG file if 'make_tn' set to 'True'.'''
 	
@@ -605,20 +604,21 @@ def getDM3FileInfo( dm3_file, get_tn=True, make_tn=False, tn_file='dm3tn_tmp.png
 					print "read/write tn: %.3g s"%(t2-t1)
 
 		# store experiment information
-		infoHash = {}
+		infoDict = {}
 		for key, tag in info_keys.items():
 			if tags.has_key( tag ):
-				infoHash[ key ] = tags[ tag ]
+				# tags supplied as Python unicode str; convert to chosen charset (typ. latin-1)
+				infoDict[ key ] = tags[ tag ].encode(info_charset)
 		
 		if get_tn:
 			if tnError:
-				infoHash['tn_size'] = 0	
+				infoDict['tn_size'] = 0	
 			else:
-				infoHash['tn_size'] = tn.size
-				infoHash['tn_mode'] = tn.mode
-				infoHash['tn_data'] = tn.tostring()
+				infoDict['tn_size'] = tn.size
+				infoDict['tn_mode'] = tn.mode
+				infoDict['tn_data'] = tn.tostring()
 			
-		return infoHash
+		return infoDict
 	# else, return False value
 	else:
 		return 0
