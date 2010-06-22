@@ -17,7 +17,7 @@ import sys, os, time
 import struct
 from PIL import Image
 
-version='0.8.1'
+version='0.8.2'
 
 ## constants for encoded data types ##
 
@@ -446,17 +446,22 @@ def readStructData( structTypes ):
 	
 def storeTag( tagName, tagValue ):
 	global storedTags, tagDict
-	# NB: all tag values stored as unicode objects
-	storedTags.append( tagName + " = " + unicode(tagValue) )
-	tagDict[tagName] = unicode(tagValue)
-	
+	# NB: all tag values (and names) stored as unicode objects;
+	#     => can then be easily converted to any encoding
+	# - /!\ tag names may not be ascii char only (e.g. '\xb5', i.e. MICRO SIGN)
+	tN = unicode(tagName, 'latin-1')
+	# - convert value to unicode if not already unicode object (as for string data)
+	tV = unicode(tagValue)
+	storedTags.append( tN + ' = ' + tV )
+	tagDict[tN] = tV
+	#print "%s|%s"%(tN, tV)    ##TEST##	
 	
 ### END sub-routines ###
 
 
 
 ### parse DM3 file ###
-def parseDM3( filename, dump=False, debug=0 ):
+def parseDM3( filename, dump=False, tmp_dir="/tmp", debug=0 ):
 	'''Function parses DM3 file and returns dict with extracted Tags.
 	Dumps Tags in a txt file if 'dump' set to 'True'.'''
 
@@ -505,14 +510,14 @@ def parseDM3( filename, dump=False, debug=0 ):
 		
 		# dump Tags in txt file if requested
 		if dump:
-			dump_file = filename + ".tagdump.txt"
+			dump_file = os.path.join(tmp_dir, os.path.split(filename)[1]+".tagdump.txt")
 			try:
 				log = open( dump_file, 'w' )
 			except:
 				print "Error -- could not access output file."
 				sys.exit()
 			for tag in storedTags:
-				log.write( tag + "\n" )
+				log.write( tag.encode('latin-1') + "\n" )
 			log.close
 	
 		# return Tag list
