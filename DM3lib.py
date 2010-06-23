@@ -17,10 +17,78 @@ import sys, os, time
 import struct
 from PIL import Image
 
-version='0.8.2'
+__all__ = ["DM3","version"]
+
+version='0.9'
+
+debugLevel = 0   # 0=none, 1-3=basic, 4-5=simple, 6-10 verbose
+
+
+### binary data reading functions ###
+
+def readLong(f):
+	'''Read 4 bytes as integer in file f'''
+	read_bytes = f.read(4)
+	return struct.unpack('>l', read_bytes)[0]
+
+def readShort(f):
+	'''Read 2 bytes as integer in file f'''
+	read_bytes = f.read(2)
+	return struct.unpack('>h', read_bytes)[0]
+
+def readByte(f):
+	'''Read 1 byte as integer in file f'''
+	read_bytes = f.read(1)
+	return struct.unpack('>b', read_bytes)[0]
+
+def readBool(f):
+	'''Read 1 byte as boolean in file f'''
+	read_val = readByte(f)
+	return (read_val!=0)
+
+def readChar(f):
+	'''Read 1 byte as char in file f'''
+	read_bytes = f.read(1)
+	return struct.unpack('c', read_bytes)[0]
+
+def readString(f, len=1):
+	'''Read len bytes as a string in file f'''
+	read_bytes = f.read(len)
+	str_fmt = '>'+str(len)+'s'
+	return struct.unpack( str_fmt, read_bytes )[0]
+
+def readLEShort(f):
+	'''Read 2 bytes as *little endian* integer in file f'''
+	read_bytes = f.read(2)
+	return struct.unpack('<h', read_bytes)[0]
+
+def readLELong(f):
+	'''Read 4 bytes as *little endian* integer in file f'''
+	read_bytes = f.read(4)
+	return struct.unpack('<l', read_bytes)[0]
+
+def readLEUShort(f):
+	'''Read 2 bytes as *little endian* unsigned integer in file f'''
+	read_bytes = f.read(2)
+	return struct.unpack('<H', read_bytes)[0]
+
+def readLEULong(f):
+	'''Read 4 bytes as *little endian* unsigned integer in file f'''
+	read_bytes = f.read(4)
+	return struct.unpack('<L', read_bytes)[0]
+
+def readLEFloat(f):
+	'''Read 4 bytes as *little endian* float in file f'''
+	read_bytes = f.read(4)
+	return struct.unpack('<f', read_bytes)[0]
+
+def readLEDouble(f):
+	'''Read 8 bytes as *little endian* double in file f'''
+	read_bytes = f.read(8)
+	return struct.unpack('<d', read_bytes)[0]
+
 
 ## constants for encoded data types ##
-
 SHORT = 2
 LONG = 3
 USHORT = 4
@@ -34,596 +102,424 @@ STRUCT = 15
 STRING = 18
 ARRAY = 20
 
+# - association data type <--> reading function
+readFunc = {
+	SHORT: readLEShort,
+	LONG: readLELong,
+	USHORT: readLEUShort,
+	ULONG: readLEULong,
+	FLOAT: readLEFloat,
+	DOUBLE: readLEDouble,
+	BOOLEAN: readBool,
+	CHAR: readChar,
+	OCTET: readChar,    # difference with char???
+}
+
+## other constants ##
+IMGLIST = "root.ImageList."
+OBJLIST = "root.DocumentObjectList."
+MAXDEPTH = 64
+
 ## END constants ##
 
 
-debugLevel = 0   # 0=none, 1-3=basic, 4-5=simple, 6-10 verbose
+class DM3(object):
+	## utility functions
+	def __makeGroupString(self):
+		tString = self.__curGroupAtLevelX[0]
+		for i in range( 1, self.__curGroupLevel+1 ):
+			tString += '.' + self.__curGroupAtLevelX[i]		
+		return tString
 
-#chosenImage = 1
-#
-#IMGLIST = "root.ImageList."
-#OBJLIST = "root.DocumentObjectList."
+	def __makeGroupNameString(self):
+		tString = self.__curGroupNameAtLevelX[0]
+		for i in range( 1, self.__curGroupLevel+1 ):
+			tString += '.' + str( self.__curGroupNameAtLevelX[i] )
+		return tString
 
+	def __readTagGroup(self):	
+		# go down a level
+		self.__curGroupLevel += 1
+		# increment group counter
+		self.__curGroupAtLevelX[self.__curGroupLevel] += 1
+		# set number of current tag to -1 --- readTagEntry() pre-increments => first gets 0
+		self.__curTagAtLevelX[self.__curGroupLevel] = -1
+		if ( debugLevel > 5):
+			print "rTG: Current Group Level:", self.__curGroupLevel
+		# is the group sorted?
+		sorted = readByte(self.__f)
+		isSorted = (sorted == 1)
+		# is the group open?
+		opened = readByte(self.__f)
+		isOpen = (opened == 1)
+		# number of Tags
+		nTags = readLong(self.__f)
+		if ( debugLevel > 5):
+			print "rTG: Iterating over the", nTags, "tag entries in this group"
+		# read Tags
+		for i in range( nTags ):
+			self.__readTagEntry()
+		# go back up one level as reading group is finished
+		self.__curGroupLevel += -1
+		return 1
 
-### initialize variables ###
-f=''
-# track currently read group
-MAXDEPTH = 64
-curGroupLevel = -1
-curGroupAtLevelX = [ 0 for x in range(MAXDEPTH) ]
-curGroupNameAtLevelX = [ "" for x in range(MAXDEPTH) ]
-# track current tag
-curTagAtLevelX = [ "" for x in range(MAXDEPTH) ]
-curTagName = ""
-storedTags = []
-tagDict = {}
-
-### END init. variables ###
-
-
-### sub-routines ###
-
-## reading n bytes functions
-def readLong( file ):
-	'''Read 4 bytes as integer in file'''
-	read_bytes = file.read(4)
-	return struct.unpack('>l', read_bytes)[0]
-
-def readShort( file ):
-	'''Read 2 bytes as integer in file'''
-	read_bytes = file.read(2)
-	return struct.unpack('>h', read_bytes)[0]
-
-def readByte( file ):
-	'''Read 1 byte as integer in file'''
-	read_bytes = file.read(1)
-	return struct.unpack('>b', read_bytes)[0]
-
-def readChar( file ):
-	'''Read 1 byte as char in file'''
-	read_bytes = file.read(1)
-	return struct.unpack('c', read_bytes)[0]
-
-def readString( file, len=1 ):
-	'''Read len bytes as a string in file'''
-	read_bytes = file.read(len)
-	str_fmt = '>'+str(len)+'s'
-	return struct.unpack( str_fmt, read_bytes )[0]
-
-def readLEShort( file ):
-	'''Read 2 bytes as *little endian* integer in file'''
-	read_bytes = file.read(2)
-	return struct.unpack('<h', read_bytes)[0]
-
-def readLELong( file ):
-	'''Read 4 bytes as *little endian* integer in file'''
-	read_bytes = file.read(4)
-	return struct.unpack('<l', read_bytes)[0]
-
-def readLEUShort( file ):
-	'''Read 2 bytes as *little endian* unsigned integer in file'''
-	read_bytes = file.read(2)
-	return struct.unpack('<H', read_bytes)[0]
-
-def readLEULong( file ):
-	'''Read 4 bytes as *little endian* unsigned integer in file'''
-	read_bytes = file.read(4)
-	return struct.unpack('<L', read_bytes)[0]
-
-def readLEFloat( file ):
-	'''Read 4 bytes as *little endian* float in file'''
-	read_bytes = file.read(4)
-	return struct.unpack('<f', read_bytes)[0]
-
-def readLEDouble( file ):
-	'''Read 8 bytes as *little endian* double in file'''
-	read_bytes = file.read(8)
-	return struct.unpack('<d', read_bytes)[0]
-
-
-## utility functions
-def makeGroupString():
-	global curGroupLevel, curGroupAtLevelX
-
-	tString = curGroupAtLevelX[0]
-	for i in range( 1, curGroupLevel+1 ):
-		tString += "."+curGroupAtLevelX[i]
-	return tString
-
-def makeGroupNameString():
-	global curGroupLevel, curGroupNameAtLevelX
-
-	tString = curGroupNameAtLevelX[0]
-	for i in range( 1, curGroupLevel+1 ):
-		tString += "." + str( curGroupNameAtLevelX[i] )
-		
-	return tString
-
-
-def readTagGroup():
-	global curGroupLevel, curGroupAtLevelX, curTagAtLevelX
-	
-	# go down a level
-	curGroupLevel += 1
-	# increment group counter
-	curGroupAtLevelX[curGroupLevel] += 1
-	# set number of current tag to -1 --- readTagEntry() pre-increments => first gets 0
-	curTagAtLevelX[curGroupLevel] = -1
-
-	if ( debugLevel > 5):
-		print "rTG: Current Group Level:", curGroupLevel
-
-	# is the group sorted?
-	sorted = readByte(f)
-	if ( sorted == 1 ):
-		isSorted = True
-	else:
-		isSorted = False
-
-	# is the group open?
-	open = readByte(f)
-	if ( open == 1 ):
-		isOpen = True
-	else:
-		isOpen = False
-
-	# number of Tags
-	nTags = readLong(f)
-	
-	if ( debugLevel > 5):
-		print "rTG: Iterating over the", nTags, "tag entries in this group"
-
-	# read Tags
-	for i in range( nTags ):
-		readTagEntry()
-	
-	# go back up one level as reading group is finished
-	curGroupLevel += -1
-	
-	return 1
-
-
-def	readTagEntry():
-	global curGroupLevel, curGroupAtLevelX, curTagAtLevelX, curTagName
-
-	# is data or a new group?
-	data = readByte(f)
-	if ( data == 21 ):
-		isData = True
-	else:
-		isData = False
-
-	curTagAtLevelX[curGroupLevel] += 1
-
-	# get tag label if exists
-	lenTagLabel = readShort(f)
-	
-	if ( lenTagLabel != 0 ):
-		tagLabel = readString(f, lenTagLabel)
-	else:
-		tagLabel = str( curTagAtLevelX[curGroupLevel] )
-	
-	if ( debugLevel > 5):
-		print str(curGroupLevel)+"|"+makeGroupString()+": Tag label = "+tagLabel
-	elif ( debugLevel > 0 ):
-		print str(curGroupLevel)+": Tag label = "+tagLabel
-
-	if isData:
-		# give it a name
-		curTagName = makeGroupNameString()+"."+tagLabel
-		# read it
-		readTagType()
-	else:
-		# it is a tag group
-		curGroupNameAtLevelX[curGroupLevel+1] = tagLabel
-		readTagGroup()  # increments curGroupLevel
-	
-	return 1
-
-
-def readTagType():
-	delim = readString(f, 4)
-	if ( delim != "%%%%" ):
-		print hex( f.tell() )+": Tag Type delimiter not %%%%"
-		sys.exit()
-
-	nInTag = readLong(f)
-
-	readAnyData()
-	
-	return 1
-
-
-def encodedTypeSize(eT):
-	# returns the size in bytes of the data type
-
-	width=-1; 	# returns -1 for unrecognised types
-	
-	if eT == 0:
-		width = 0
-	elif ( (eT == BOOLEAN) or (eT == CHAR) or (eT == OCTET) ):
-		width = 1
-	elif ( (eT == SHORT) or (eT == USHORT) ):
-		width = 2
-	elif ( (eT == LONG) or (eT == ULONG) or (eT == FLOAT) ):
-		width = 4
-	elif (eT == DOUBLE):			
-		width = 8
-	
-	return width
-
-
-def readAnyData():
-	## higher level function dispatching to handling data types to other functions
-		
-	# get Type category (short, long, array...)
-	encodedType = readLong(f)
-	# calc size of encodedType
-	etSize = encodedTypeSize(encodedType)
-
-	if ( debugLevel > 5):
-		print "rAnD, " + hex( f.tell() ) + ": Tag Type = " + str(encodedType) +  ", Tag Size = " + str(etSize)
-	
-	if ( etSize > 0 ):
-		storeTag( curTagName, readNativeData(encodedType, etSize) )
-	elif ( encodedType == STRING ):
-		stringSize = readLong(f)
-		readStringData(stringSize)
-	elif ( encodedType == STRUCT ):
-		# does not store tags yet
-		structTypes = readStructTypes()
-		readStructData(structTypes)
-	elif ( encodedType == ARRAY ):
-		# does not store tags yet
-		# indicates size of skipped data blocks
-		arrayTypes = readArrayTypes()
-		readArrayData(arrayTypes)
-	else:
-		print "rAnD, " + hex( f.tell() ) + ": Can't understand encoded type"
-		sys.exit()
-		
-	return 1
-	
-
-def readNativeData( encodedType, etSize ):
-	# reads ordinary data types
-
-	if ( encodedType == SHORT ):
-		val = readLEShort(f)
-	elif ( encodedType == LONG ):
-		val = readLELong(f)
-	elif ( encodedType == USHORT ):
-		val = readLEUShort(f)
-	elif ( encodedType == ULONG ):
-		val = readLEULong(f)
-	elif ( encodedType == FLOAT ):
-		val = readLEFloat(f)
-	elif ( encodedType == DOUBLE ):
-		val = readLEDouble(f)
-	elif ( encodedType == BOOLEAN ):
-		bool = readByte(f)
-		if bool == 0:
-			val = False
+	def	__readTagEntry(self):
+		# is data or a new group?
+		data = readByte(self.__f)
+		isData = (data == 21)
+		self.__curTagAtLevelX[self.__curGroupLevel] += 1
+		# get tag label if exists
+		lenTagLabel = readShort(self.__f)
+		if ( lenTagLabel != 0 ):
+			tagLabel = readString(self.__f, lenTagLabel)
 		else:
-			val = True 
-	elif ( encodedType == CHAR ):
-		val = readChar(f)
-	elif ( encodedType == OCTET):
-		val = readChar(f)   # difference with char???
-	else:
-		print "rND, " + hex( f.tell() ) + ": Unknown data type " + str(encodedType)
-		sys.exit()
-	
-	if ( debugLevel > 3 ):
-		print "rND, " + hex( f.tell() ) + ": " + str(val)
-	elif ( debugLevel > 0 ):
-		print val
-	
-	return val
+			tagLabel = str( self.__curTagAtLevelX[self.__curGroupLevel] )
+		if ( debugLevel > 5):
+			print str(self.__curGroupLevel)+"|"+__makeGroupString()+": Tag label = "+tagLabel
+		elif ( debugLevel > 0 ):
+			print str(self.__curGroupLevel)+": Tag label = "+tagLabel
+		if isData:
+			# give it a name
+			self.__curTagName = self.__makeGroupNameString()+"."+tagLabel
+			# read it
+			self.__readTagType()
+		else:
+			# it is a tag group
+			self.__curGroupNameAtLevelX[self.__curGroupLevel+1] = tagLabel
+			self.__readTagGroup()  # increments curGroupLevel
+		return 1
 
+	def __readTagType(self):
+		delim = readString(self.__f, 4)
+		if ( delim != "%%%%" ):
+			raise Exception, hex( self.__f.tell() )+": Tag Type delimiter not %%%%"
+		nInTag = readLong(self.__f)
+		self.__readAnyData()
+		return 1
 
-def readStringData(stringSize):
-	# reads string data
- 	if ( stringSize <= 0 ):
-		rString = ""
-	else:
+	def __encodedTypeSize(self, eT):
+		# returns the size in bytes of the data type	
+		if eT == 0:
+			width = 0
+		elif eT in (BOOLEAN, CHAR, OCTET):
+			width = 1
+		elif eT in (SHORT, USHORT):
+			width = 2
+		elif eT in (LONG, ULONG, FLOAT):
+			width = 4
+		elif eT == DOUBLE:
+			width = 8
+		else:
+			# returns -1 for unrecognised types
+			width=-1	
+		return width
+
+	def __readAnyData(self):
+		## higher level function dispatching to handling data types to other functions	
+		# - get Type category (short, long, array...)
+		encodedType = readLong(self.__f)
+		# - calc size of encodedType
+		etSize = self.__encodedTypeSize(encodedType)
+		if ( debugLevel > 5):
+			print "rAnD, " + hex( f.tell() ) + ": Tag Type = " + str(encodedType) +  ", Tag Size = " + str(etSize)
+		if ( etSize > 0 ):
+			self.__storeTag( self.__curTagName, self.__readNativeData(encodedType, etSize) )
+		elif ( encodedType == STRING ):
+			stringSize = readLong(self.__f)
+			self.__readStringData(stringSize)
+		elif ( encodedType == STRUCT ):
+			# does not store tags yet
+			structTypes = self.__readStructTypes()
+			self.__readStructData(structTypes)
+		elif ( encodedType == ARRAY ):
+			# does not store tags yet
+			# indicates size of skipped data blocks
+			arrayTypes = self.__readArrayTypes()
+			self.__readArrayData(arrayTypes)
+		else:
+			raise Exception, "rAnD, " + hex(self.__f.tell()) + ": Can't understand encoded type"		
+		return 1
+	
+	def __readNativeData(self, encodedType, etSize):
+		# reads ordinary data types
+		if encodedType in readFunc.keys():
+			val = readFunc[encodedType](self.__f)
+		else:
+			raise Exception, "rND, " + hex(self.__f.tell()) + ": Unknown data type " + str(encodedType)		
 		if ( debugLevel > 3 ):
-			print "rSD @ " + str( f.tell() ) + "/" + hex( f.tell() ) +" :",
-			
-		## !!! *Unicode* string (UTF-16)... convert to Python unicode str
-		rString = readString(f, stringSize)
-		rString = unicode(rString, "utf_16_le")
+			print "rND, " + hex(self.__f.tell()) + ": " + str(val)
+		elif ( debugLevel > 0 ):
+			print val
+		return val
 
-		if ( debugLevel > 3 ):
-			print rString + "   <"  + repr( rString ) + ">"
+	def __readStringData(self, stringSize):
+		# reads string data
+		if ( stringSize <= 0 ):
+			rString = ""
+		else:
+			if ( debugLevel > 3 ):
+				print "rSD @ " + str(f.tell()) + "/" + hex(f.tell()) +" :",
+			## !!! *Unicode* string (UTF-16)... convert to Python unicode str
+			rString = readString(self.__f, stringSize)
+			rString = unicode(rString, "utf_16_le")
+			if ( debugLevel > 3 ):
+				print rString + "   <"  + repr( rString ) + ">"
+		if ( debugLevel > 0 ):
+			print "StringVal:", rString
+		self.__storeTag( self.__curTagName, rString )
+		return rString
+	
+	def __readArrayTypes(self):
+		# determines the data types in an array data type
+		arrayType = readLong(self.__f)
+		itemTypes=[]
+		if ( arrayType == STRUCT ):
+			itemTypes = self.__readStructTypes()
+		elif ( arrayType == ARRAY ):
+			itemTypes = self.__readArrayTypes()
+		else:
+			itemTypes.append( arrayType )
+		return itemTypes
 
-	if ( debugLevel > 0 ):
-		print "StringVal:", rString
-	
-	storeTag( curTagName, rString )
-
-	return rString
-	
-	
-def readArrayTypes():
-	# determines the data types in an array data type
-	arrayType = readLong(f)
-	
-	itemTypes=[]
-	if ( arrayType == STRUCT ):
-		itemTypes = readStructTypes()
-	elif ( arrayType == ARRAY ):
-		itemTypes = readArrayTypes()
-	else:
-		itemTypes.append( arrayType )
-	
-	return itemTypes
-
-
-def readArrayData(arrayTypes):
-	# reads array data
-	
-	arraySize = readLong(f)
-	
-	if ( debugLevel > 3 ):
-		print "rArD, " + hex( f.tell() ) + ": Reading array of size = " + str(arraySize)
-	
-	itemSize = 0
-	encodedType = 0
-	
-	for i in range( len(arrayTypes) ):
-		encodedType = int( arrayTypes[i] )
-		etSize = encodedTypeSize(encodedType)
-		itemSize += etSize
-		if ( debugLevel > 5 ):
-			print "rArD: Tag Type = " + str(encodedType) + ", Tag Size = " + str(etSize)
-		##! readNativeData( encodedType, etSize ) !##
-	
-	if ( debugLevel > 5 ):
-		print "rArD: Array Item Size = " + str(itemSize)
-
-	bufSize = arraySize * itemSize
-	
-	if ( (not curTagName.endswith("ImageData.Data"))
-			and  ( len(arrayTypes) == 1 )
-			and  ( encodedType == USHORT )
-			and  ( arraySize < 256 ) ):
-		# treat as string
-		val = readStringData( bufSize )
-	else:
-		# treat as binary data
-		# - store data size and offset as tags 
-		storeTag( curTagName + ".Size", bufSize )
-		storeTag( curTagName + ".Offset", f.tell() )
-		# - skip data w/o reading
-		f.seek( f.tell() + bufSize )
-	
-	return 1
-
-
-def readStructTypes():
-	# analyses data types in a struct
-	
-	if ( debugLevel > 3 ):
-		print "Reading Struct Types at Pos = " + hex( f.tell() )
-
-	structNameLength = readLong(f)
-	nFields = readLong(f)
-
-	if ( debugLevel > 5 ):
-		print "nFields = ", nFields
-
-	if ( nFields > 100 ):
-		print hex( f.tell() ), "Too many fields"
-		sys.exit()
+	def __readArrayData(self, arrayTypes):
+		# reads array data
 		
-	fieldTypes = []	
-	nameLength = 0
-	for i in range( nFields ):
-		nameLength = readLong(f)
-		if ( debugLevel > 9 ):
-			print i + "th namelength = " + nameLength
-		fieldType = readLong(f)
-		fieldTypes.append( fieldType )
-
-	return fieldTypes
-
-	
-def readStructData( structTypes ):
-	# reads struct data based on type info in structType
-	for i in range( len(structTypes) ):
-		encodedType = structTypes[i]
-		etSize = encodedTypeSize(encodedType)
-
+		arraySize = readLong(self.__f)
+		
+		if ( debugLevel > 3 ):
+			print "rArD, " + hex( f.tell() ) + ": Reading array of size = " + str(arraySize)
+		
+		itemSize = 0
+		encodedType = 0
+		
+		for i in range( len(arrayTypes) ):
+			encodedType = int( arrayTypes[i] )
+			etSize = self.__encodedTypeSize(encodedType)
+			itemSize += etSize
+			if ( debugLevel > 5 ):
+				print "rArD: Tag Type = " + str(encodedType) + ", Tag Size = " + str(etSize)
+			##! readNativeData( encodedType, etSize ) !##
+		
 		if ( debugLevel > 5 ):
-			print "Tag Type = " + str(encodedType) + ", Tag Size = " + str(etSize)
-
-		# get data
-		readNativeData(encodedType, etSize)
+			print "rArD: Array Item Size = " + str(itemSize)
 	
-	return 1
+		bufSize = arraySize * itemSize
+		
+		if ( (not self.__curTagName.endswith("ImageData.Data"))
+				and  ( len(arrayTypes) == 1 )
+				and  ( encodedType == USHORT )
+				and  ( arraySize < 256 ) ):
+			# treat as string
+			val = self.__readStringData( bufSize )
+		else:
+			# treat as binary data
+			# - store data size and offset as tags 
+			self.__storeTag( self.__curTagName + ".Size", bufSize )
+			self.__storeTag( self.__curTagName + ".Offset", self.__f.tell() )
+			# - skip data w/o reading
+			self.__f.seek( self.__f.tell() + bufSize )
+		
+		return 1
+
+	def __readStructTypes(self):
+		# analyses data types in a struct
+		
+		if ( debugLevel > 3 ):
+			print "Reading Struct Types at Pos = " + hex(self.__f.tell())
 	
+		structNameLength = readLong(self.__f)
+		nFields = readLong(self.__f)
 	
-def storeTag( tagName, tagValue ):
-	global storedTags, tagDict
-	# NB: all tag values (and names) stored as unicode objects;
-	#     => can then be easily converted to any encoding
-	# - /!\ tag names may not be ascii char only (e.g. '\xb5', i.e. MICRO SIGN)
-	tN = unicode(tagName, 'latin-1')
-	# - convert value to unicode if not already unicode object (as for string data)
-	tV = unicode(tagValue)
-	storedTags.append( tN + ' = ' + tV )
-	tagDict[tN] = tV
-	#print "%s|%s"%(tN, tV)    ##TEST##	
+		if ( debugLevel > 5 ):
+			print "nFields = ", nFields
 	
-### END sub-routines ###
+		if ( nFields > 100 ):
+			raise Exception, hex(self.__f.tell())+": Too many fields"
+			
+		fieldTypes = []	
+		nameLength = 0
+		for i in range( nFields ):
+			nameLength = readLong(self.__f)
+			if ( debugLevel > 9 ):
+				print i + "th namelength = " + nameLength
+			fieldType = readLong(self.__f)
+			fieldTypes.append( fieldType )
+	
+		return fieldTypes
 
+	def __readStructData(self, structTypes):
+		# reads struct data based on type info in structType
+		for i in range( len(structTypes) ):
+			encodedType = structTypes[i]
+			etSize = self.__encodedTypeSize(encodedType)
+	
+			if ( debugLevel > 5 ):
+				print "Tag Type = " + str(encodedType) + ", Tag Size = " + str(etSize)
+	
+			# get data
+			self.__readNativeData(encodedType, etSize)
+		
+		return 1
+	
+	def __storeTag(self, tagName, tagValue):
+		# NB: all tag values (and names) stored as unicode objects;
+		#     => can then be easily converted to any encoding
+		# - /!\ tag names may not be ascii char only (e.g. '\xb5', i.e. MICRO SIGN)
+		tagName = unicode(tagName, 'latin-1')
+		# - convert tag value to unicode if not already unicode object (as for string data)
+		tagValue = unicode(tagValue)
+		# store Tags as list and dict
+		self.__storedTags.append( tagName + " = " + tagValue )
+		self.__tagDict[tagName] = tagValue
+		
+	### END utility functions ###
+	
+	def __init__(self, filename, dump=False, tmp_dir='/tmp', debug=0):
+		### Parses DM3 file and extracts Tags; dumps Tags in a txt file if dump==True. ###
 
-
-### parse DM3 file ###
-def parseDM3( filename, dump=False, tmp_dir="/tmp", debug=0 ):
-	'''Function parses DM3 file and returns dict with extracted Tags.
-	Dumps Tags in a txt file if 'dump' set to 'True'.'''
-
-	try:
-		print "Accessing file... "
-		global f
-		f = open( filename, 'rb' )
+		## initialize variables ##
+		self.debug = debug
+		self.__filename = filename
+		self.__chosenImage = 1
+		# - track currently read group
+		self.__curGroupLevel = -1
+		self.__curGroupAtLevelX = [ 0 for x in range(MAXDEPTH) ]
+		self.__curGroupNameAtLevelX = [ '' for x in range(MAXDEPTH) ]
+		# - track current tag
+		self.__curTagAtLevelX = [ '' for x in range(MAXDEPTH) ]
+		self.__curTagName = ''
+		# - open file for reading
+		self.__f = open( self.__filename, 'rb' )
+		# - create Tags repositories
+		self.__storedTags = []
+		self.__tagDict = {}
+		
+		if self.debug>0:
+			t1 = time.time()
 		isDM3 = True
 		## read header (first 3 4-byte int)
 		# get version
-		fileVersion = readLong(f)
+		fileVersion = readLong(self.__f)
 		if ( fileVersion != 3 ):
 			isDM3 = False
 		# get indicated file size
-		FileSize = readLong(f)
+		fileSize = readLong(self.__f)
 		# get byte-ordering
-		lE = readLong(f)
-		if ( lE == 1 ):
-			littleEndian = True
-		else :
-			littleEndian = False
+		lE = readLong(self.__f)
+		littleEndian = (lE == 1)
+		if not littleEndian:
 			isDM3 = False
 		# check file header, raise Exception if not DM3
-		if (not (isDM3 and littleEndian) ):
-			raise NameError("Is_Not_a_DM3_File")
-		
-		if ( debugLevel > 5 or debug > 1):
+		if not isDM3:
+			raise Exception, "%s does not appear to be a DM3 file."%os.path.split(self.__filename)[1]
+		elif self.debug > 0:
+			print "%s appears to be a DM3 file"%(self.__filename)
+			
+		if ( debugLevel > 5 or self.debug > 1):
 			print "Header info.:"
-			print "File version:", version
-			print "lE:", lE
-			print "File size:", FileSize, "bytes"
-
-		print '%s appears to be a DM3 file' % filename,
+			print "- file version:", fileVersion
+			print "- lE:", lE
+			print "- file size:", fileSize, "bytes"
 
 		# set name of root group (contains all data)...
-		curGroupNameAtLevelX[0] = "root"
+		self.__curGroupNameAtLevelX[0] = "root"
 		# ... then read it
-		global storedTags, tagDict
-		storedTags = []
-		tagDict = {}
-		readTagGroup()
+		self.__readTagGroup()
+		if self.debug > 0:
+			print "-- %s Tags read --"%len(self.__storedTags)
 		
-		f.close()
-		
-		print "--", len(storedTags), "Tags read"
-		
+		if self.debug>0:
+			t2 = time.time()
+			print "| parse DM3 file: %.3g s"%(t2-t1)
+				
 		# dump Tags in txt file if requested
 		if dump:
-			dump_file = os.path.join(tmp_dir, os.path.split(filename)[1]+".tagdump.txt")
+			dump_file = os.path.join(tmp_dir, os.path.split(self.__filename)[1]+".tagdump.txt")
 			try:
-				log = open( dump_file, 'w' )
+				dumpf = open( dump_file, 'w' )
 			except:
-				print "Error -- could not access output file."
-				sys.exit()
-			for tag in storedTags:
-				log.write( tag.encode('latin-1') + "\n" )
-			log.close
-	
-		# return Tag list
-		return tagDict
-	
-	except IOError:
-		print "Error -- cannot access data file. Terminating."
-		sys.exit()
-	except NameError:
-		print '%s does not appear to be a DM3 file.' % filename
-		return 0
-	except:
-		print '\n Could not parse %s as a DM3 file' % filename
-		return 0
-
-
-def getDM3FileInfo( dm3_file, get_tn=True, make_tn=False, tn_file='dm3tn_tmp.png', info_charset='latin1', debug=0 ):
-	'''Extracts useful experiment info from DM3 file and 
-	exports thumbnail to a PNG file if 'make_tn' set to 'True'.'''
-	
-	# define useful information
-	info_keys = {
-		'descrip': 'root.ImageList.1.Description',
-		'acq_date': 'root.ImageList.1.ImageTags.DataBar.Acquisition Date',
-		'acq_time': 'root.ImageList.1.ImageTags.DataBar.Acquisition Time',
-		'name': 'root.ImageList.1.ImageTags.Microscope Info.Name',
-		'micro': 'root.ImageList.1.ImageTags.Microscope Info.Microscope',
-		'hv': 'root.ImageList.1.ImageTags.Microscope Info.Voltage',
-		'mag': 'root.ImageList.1.ImageTags.Microscope Info.Indicated Magnification',
-		'mode': 'root.ImageList.1.ImageTags.Microscope Info.Operation Mode',
-		'operator': 'root.ImageList.1.ImageTags.Microscope Info.Operator',
-		'specimen': 'root.ImageList.1.ImageTags.Microscope Info.Specimen',
-#		'image_notes': 'root.DocumentObjectList.10.Text' # = Image Notes 		
-		}
-		
-	# parse DM3 file
-	tags = parseDM3( dm3_file, dump=False, debug=debug )
-
-	# if OK, extract Tags [and thumbnail]
-	if tags:
-		if get_tn or make_tn:
-			
-			tnError = False
-			# get thumbnail
-			tn_size = int( tags[ 'root.ImageList.0.ImageData.Data.Size' ] )
-			tn_offset = int( tags[ 'root.ImageList.0.ImageData.Data.Offset' ] )
-			tn_width = int( tags[ 'root.ImageList.0.ImageData.Dimensions.0' ] )
-			tn_height = int( tags[ 'root.ImageList.0.ImageData.Dimensions.1' ] )
-			
-			if debug > 0:
-				print "tn data in", dm3_file, "starts at", hex( tn_offset )
-				print "tn size: %sx%s px"%(tn_width,tn_height)
-			
-			if (tn_width*tn_height*4) != tn_size:
-				print "Warning: cannot extract thumbnail from", dm3_file
-				tnError = True
-
-			if not tnError:
-				if debug>1:
-					t1 = time.time()				
-				# access DM3 file
-				try:
-					dm3f = open( dm3_file, 'rb' )
-				except:
-					print "Error accessing DM3 file"
-					sys.exit()
-						
-				# read tn image data
-				dm3f.seek( tn_offset )			
-				rawdata = dm3f.read(tn_width*tn_height*4)
-				dm3f.close()
-	
-				# read as 16-bit LE unsigned integer
-				tn = Image.fromstring( 'F', (tn_width,tn_height), rawdata, 'raw', 'F;32' )
-				
-				# rescale and convert px data, then save thumbnail
-				tn = tn.point(lambda x: x * (1./65536) + 0)
-				tn = tn.convert('L')
-				
-				if make_tn:
-					tn_file = os.path.splitext(tn_file)[0]+'.png'
-					try:
-						tn.save(tn_file, 'PNG')
-					except:
-						print "Warning: could not save thumbnail."
-	
-				if debug>1:
-					t2 = time.time()
-					print "read/write tn: %.3g s"%(t2-t1)
-
-		# store experiment information
-		infoDict = {}
-		for key, tag in info_keys.items():
-			if tags.has_key( tag ):
-				# tags supplied as Python unicode str; convert to chosen charset (typ. latin-1)
-				infoDict[ key ] = tags[ tag ].encode(info_charset)
-		
-		if get_tn:
-			if tnError:
-				infoDict['tn_size'] = 0	
+				print "Warning: cannot generate dump file."
 			else:
-				infoDict['tn_size'] = tn.size
-				infoDict['tn_mode'] = tn.mode
-				infoDict['tn_data'] = tn.tostring()
-			
+				for tag in self.__storedTags:
+					dumpf.write( tag.encode('latin-1') + "\n" )
+				dumpf.close
+
+	def getFilename(self):
+		return self.__filename
+	filename = property(getFilename)
+
+	def getTags(self):
+		return self.__tagDict
+	tags = property(getTags)
+
+	def getInfo(self, info_charset='latin1'):
+		'''Extracts useful experiment info from DM3 file and 
+		exports thumbnail to a PNG file if 'make_tn' set to 'True'.'''
+		
+		# define useful information
+		info_keys = {
+			'descrip': 'root.ImageList.1.Description',
+			'acq_date': 'root.ImageList.1.ImageTags.DataBar.Acquisition Date',
+			'acq_time': 'root.ImageList.1.ImageTags.DataBar.Acquisition Time',
+			'name': 'root.ImageList.1.ImageTags.Microscope Info.Name',
+			'micro': 'root.ImageList.1.ImageTags.Microscope Info.Microscope',
+			'hv': 'root.ImageList.1.ImageTags.Microscope Info.Voltage',
+			'mag': 'root.ImageList.1.ImageTags.Microscope Info.Indicated Magnification',
+			'mode': 'root.ImageList.1.ImageTags.Microscope Info.Operation Mode',
+			'operator': 'root.ImageList.1.ImageTags.Microscope Info.Operator',
+			'specimen': 'root.ImageList.1.ImageTags.Microscope Info.Specimen',
+		#	'image_notes': 'root.DocumentObjectList.10.Text' # = Image Notes 		
+			}
+
+		# get experiment information
+		infoDict = {}
+		for key, tag_name in info_keys.items():
+			if self.tags.has_key(tag_name):
+				# tags supplied as Python unicode str; convert to chosen charset (typ. latin-1)
+				infoDict[key] = self.tags[tag_name].encode(info_charset)
+
+		# return experiment information
 		return infoDict
-	# else, return False value
-	else:
-		return 0
+
+	info = property(getInfo)
+	
+	def getThumbnail(self):
+		# get thumbnail
+		tn_size = int( self.tags['root.ImageList.0.ImageData.Data.Size'] )
+		tn_offset = int( self.tags['root.ImageList.0.ImageData.Data.Offset'] )
+		tn_width = int( self.tags['root.ImageList.0.ImageData.Dimensions.0'] )
+		tn_height = int( self.tags['root.ImageList.0.ImageData.Dimensions.1'] )
+			
+		if self.debug > 0:
+			print "Notice: tn data in %s starts at %s"%(os.path.split(self.__filename)[1], hex(tn_offset))
+			print "Notice: tn size: %sx%s px"%(tn_width,tn_height)
+
+		tnDict = {}
+		if (tn_width*tn_height*4) != tn_size:
+			print "Warning: cannot extract thumbnail from %s"%os.path.split(self.__filename)[1]
+			tnDict['size'] = 0
+		else:
+			self.__f.seek( tn_offset )			
+			rawdata = self.__f.read(tn_width*tn_height*4)	
+			# - read as 16-bit LE unsigned integer
+			tn = Image.fromstring( 'F', (tn_width,tn_height), rawdata, 'raw', 'F;32' )
+			# - rescale and convert px data
+			tn = tn.point(lambda x: x * (1./65536) + 0)
+			tn = tn.convert('L')
+			# - fill tnDict
+			tnDict['size'] = tn.size
+			tnDict['mode'] = tn.mode
+			tnDict['rawdata'] = tn.tostring()
+		
+		return tnDict
+
+	thumbnail = property(getThumbnail)
+			
+	def makePNGThumbnail(self, tn_file='dm3tn_tmp.png'):
+		# generate thumbnail file
+		tn_file = os.path.splitext(tn_file)[0]+'.png'
+		try:
+			tn = Image.fromstring( self.thumbnail['mode'], self.thumbnail['size'], self.thumbnail['rawdata'] )
+			tn.save(tn_file, 'PNG')
+		except:
+			print "Warning: could not save thumbnail."
