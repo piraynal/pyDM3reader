@@ -16,12 +16,30 @@
 import sys, os, time
 import struct
 from PIL import Image
+import numpy
+import scipy.misc
 
 __all__ = ["DM3","version"]
 
-version='0.9'
+version='0.9.9'
 
 debugLevel = 0   # 0=none, 1-3=basic, 4-5=simple, 6-10 verbose
+
+
+### utility fuctions ###
+# Image to Array
+def im2ar( im ):
+	if im.mode in ('L','I','F'):
+	    # Warning: only works with PIL.Image.Image whose mode is 'L', 'I' or 'F'
+    	#          => error if mode == 'I;16' for instance
+	    a = scipy.misc.fromimage( im )
+    	return a
+#	else:
+#		return False
+		
+## Array to image file
+def ar2imfile(filename, a):
+    scipy.misc.imsave(filename, a)
 
 
 ### binary data reading functions ###
@@ -374,9 +392,9 @@ class DM3(object):
 		
 	### END utility functions ###
 	
-	def __init__(self, filename, dump=False, tmp_dir='/tmp', debug=0):
-		### Parses DM3 file and extracts Tags; dumps Tags in a txt file if dump==True. ###
-
+	def __init__(self, filename, dump=False, dump_dir='/tmp', debug=0):
+		'''DM3 object: parses DM3 file and extracts Tags; dumps Tags in a txt file if dump==True.'''
+		
 		## initialize variables ##
 		self.debug = debug
 		self.__filename = filename
@@ -434,7 +452,7 @@ class DM3(object):
 				
 		# dump Tags in txt file if requested
 		if dump:
-			dump_file = os.path.join(tmp_dir, os.path.split(self.__filename)[1]+".tagdump.txt")
+			dump_file = os.path.join(dump_dir, os.path.split(self.__filename)[1]+".tagdump.txt")
 			try:
 				dumpf = open( dump_file, 'w' )
 			except:
@@ -483,7 +501,8 @@ class DM3(object):
 
 	info = property(getInfo)
 	
-	def getThumbnail(self):
+	def getThumbnail(self, asDict=False):
+		'''Returns thumbnail as Image or dict.'''
 		# get thumbnail
 		tn_size = int( self.tags['root.ImageList.0.ImageData.Data.Size'] )
 		tn_offset = int( self.tags['root.ImageList.0.ImageData.Data.Offset'] )
@@ -493,33 +512,125 @@ class DM3(object):
 		if self.debug > 0:
 			print "Notice: tn data in %s starts at %s"%(os.path.split(self.__filename)[1], hex(tn_offset))
 			print "Notice: tn size: %sx%s px"%(tn_width,tn_height)
-
-		tnDict = {}
+			
+		sizeError = False
 		if (tn_width*tn_height*4) != tn_size:
-			print "Warning: cannot extract thumbnail from %s"%os.path.split(self.__filename)[1]
-			tnDict['size'] = 0
+			raise Exception, "Cannot extract thumbnail from %s"%os.path.split(self.__filename)[1]
 		else:
 			self.__f.seek( tn_offset )			
-			rawdata = self.__f.read(tn_width*tn_height*4)	
+			rawdata = self.__f.read(tn_size)	
 			# - read as 16-bit LE unsigned integer
 			tn = Image.fromstring( 'F', (tn_width,tn_height), rawdata, 'raw', 'F;32' )
 			# - rescale and convert px data
 			tn = tn.point(lambda x: x * (1./65536) + 0)
 			tn = tn.convert('L')
+		
+		if asDict:
 			# - fill tnDict
+			tnDict = {}
 			tnDict['size'] = tn.size
 			tnDict['mode'] = tn.mode
 			tnDict['rawdata'] = tn.tostring()
-		
-		return tnDict
+			return tnDict
+		else:
+			return tn
 
 	thumbnail = property(getThumbnail)
-			
-	def makePNGThumbnail(self, tn_file='dm3tn_tmp.png'):
-		# generate thumbnail file
-		tn_file = os.path.splitext(tn_file)[0]+'.png'
+
+	def getThumbnailData(self):
+		'''Returns thumbnail data as numpy.array'''
+		return im2ar(self.thumbnail)
+
+	thumbnaildata = property(getThumbnailData)
+				
+	def makePNGThumbnail(self, tn_file=''):
+		'''Save thumbnail as PNG file.'''
+		# - cleanup name
+		if tn_file == '':
+			tn_path = os.path.join('./', os.path.split(self.filename)[1]+'.tn.png')
+		else:
+			if os.path.splitext(tn_file)[1] != '.png':
+				tn_path = os.path.splitext(tn_file)[0] + '.png'
+			else:
+				tn_path = tn_file
+		# - save tn file
 		try:
-			tn = Image.fromstring( self.thumbnail['mode'], self.thumbnail['size'], self.thumbnail['rawdata'] )
-			tn.save(tn_file, 'PNG')
+			self.thumbnail.save(tn_path, 'PNG')
+			if self.debug > 0:
+				print "Thumbnail saved as '%s'."%tn_path
 		except:
 			print "Warning: could not save thumbnail."
+
+	def getImage(self):
+		'''Extracts image data as Image'''
+		
+		# DataTypes for image data <--> PIL decoders
+		dataTypes = {
+			1: 'F;16S',    #16-bit LE signed integer
+			2: 'F;32F',
+			7: 'F;32',   #32-bit LE unsigned integer
+			10: 'F;16',    #16-bit LE unsigned integer
+			}
+		
+		# get relevant Tags			
+		data_offset = int( self.tags['root.ImageList.1.ImageData.Data.Offset'] )
+		data_size = int( self.tags['root.ImageList.1.ImageData.Data.Size'] )
+		data_type = int( self.tags['root.ImageList.1.ImageData.DataType'] )
+		im_width = int( self.tags['root.ImageList.1.ImageData.Dimensions.0'] )
+		im_height = int( self.tags['root.ImageList.1.ImageData.Dimensions.1'] )
+
+		if self.debug>0:
+			print "Notice: image data in %s starts at %s"%(os.path.split(self.__filename)[1], hex(data_offset))
+			print "Notice: image size: %sx%s px"%(im_width,im_height)
+						
+		# check if DataType is implemented, then read
+		if data_type in dataTypes.keys():
+			decoder = dataTypes[data_type]
+			if self.debug>0:
+				print "Notice: image data read as %s"%decoder
+				t1 = time.time()
+			self.__f.seek( data_offset )
+			rawdata = self.__f.read(data_size)
+			im = Image.fromstring( 'F', (im_width,im_height), rawdata, 'raw', decoder )
+			if self.debug>0:
+				t2 = time.time()
+				print "| read image data: %.3g s"%(t2-t1)
+		else:	
+			raise Exception, "Cannot extract image data from %s: unimplemented DataType."%os.path.split(self.__filename)[1]
+			
+		return im
+		
+	image = property(getImage)
+
+	def getImageData(self):
+		'''Extracts image data as numpy.array'''
+		return im2ar(self.image)
+
+	imagedata = property(getImageData)
+	
+	def getDisplayCuts(self):
+		'''Returns display level limits.'''
+		display_min = int( float( self.tags['root.DocumentObjectList.0.ImageDisplayInfo.LowLimit'] ) )
+		display_max = int( float( self.tags['root.DocumentObjectList.0.ImageDisplayInfo.HighLimit'] ) )
+		cuts = (display_min, display_max)
+		return cuts
+	
+	cuts = property(getDisplayCuts)
+
+	def getPixelSize(self):
+		'''Returns pixel size and unit.'''
+		pixel_size = float( self.tags['root.ImageList.1.ImageData.Calibrations.Dimension.0.Scale'] )
+		unit = self.tags['root.ImageList.1.ImageData.Calibrations.Dimension.0.Units']
+		if unit == u'\xb5m':
+			unit = 'micron'
+		else:
+			unit = unit.encode('ascii')
+		if self.debug>0:
+			print "pixel size = %s %s"%(pixel_size,unit)		
+		return (pixel_size,unit)
+
+	pxsize = property(getPixelSize)
+			
+if __name__ == '__main__':
+	print "DM3lib v.%s"%version
+
