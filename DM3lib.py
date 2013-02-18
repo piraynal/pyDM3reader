@@ -9,7 +9,7 @@
 ## based on the DM3_Reader plug-in (v 1.3.4) for ImageJ by Greg Jefferis <jefferis@stanford.edu>
 ## http://rsb.info.nih.gov/ij/plugins/DM3_Reader.html
 ## --
-## Python adaptation: Pierre-Ivan Raynal <raynal@med.univ-tours.fr>
+## Python adaptation: Pierre-Ivan Raynal <raynal@univ-tours.fr>
 ## http://microscopies.med.univ-tours.fr/
 ################################################################################
 
