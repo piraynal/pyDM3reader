@@ -21,7 +21,7 @@ import scipy.misc
 
 __all__ = ["DM3","version"]
 
-version='0.9.9'
+version='0.9.9b'
 
 debugLevel = 0   # 0=none, 1-3=basic, 4-5=simple, 6-10 verbose
 
@@ -567,9 +567,10 @@ class DM3(object):
 		# DataTypes for image data <--> PIL decoders
 		dataTypes = {
 			1: 'F;16S',    #16-bit LE signed integer
-			2: 'F;32F',
-			7: 'F;32',   #32-bit LE unsigned integer
+			2: 'F;32F',    #32-bit LE floating point
+			7: 'F;32S',   #32-bit LE signed integer
 			10: 'F;16',    #16-bit LE unsigned integer
+			11: 'F;32',    #32-bit LE unsigned integer
 			}
 		
 		# get relevant Tags			
