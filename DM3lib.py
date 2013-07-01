@@ -21,7 +21,7 @@ import scipy.misc
 
 __all__ = ["DM3","version"]
 
-version='0.9.9b'
+version='1.0.dev'
 
 debugLevel = 0   # 0=none, 1-3=basic, 4-5=simple, 6-10 verbose
 
@@ -132,6 +132,48 @@ readFunc = {
 	CHAR: readChar,
 	OCTET: readChar,    # difference with char???
 }
+
+## list of image DataTypes ##
+dataTypes = {
+	0:	'NULL_DATA',
+	1:	'SIGNED_INT16_DATA',
+	2:	'REAL4_DATA',
+	3:	'COMPLEX8_DATA',
+	4:	'OBSELETE_DATA',
+	5:	'PACKED_DATA',
+	6:	'UNSIGNED_INT8_DATA',
+	7:	'SIGNED_INT32_DATA',
+	8:	'RGB_DATA',
+	9:	'SIGNED_INT8_DATA',
+	10: 'UNSIGNED_INT16_DATA',
+	11: 'UNSIGNED_INT32_DATA',
+	12: 'REAL8_DATA',
+	13: 'COMPLEX16_DATA',
+	14: 'BINARY_DATA',
+	15: 'RGB_UINT8_0_DATA',
+	16: 'RGB_UINT8_1_DATA',
+	17: 'RGB_UINT16_DATA',
+	18: 'RGB_FLOAT32_DATA',
+	19: 'RGB_FLOAT64_DATA',
+	20: 'RGBA_UINT8_0_DATA',
+	21: 'RGBA_UINT8_1_DATA',
+	22: 'RGBA_UINT8_2_DATA',
+	23: 'RGBA_UINT8_3_DATA',
+	24: 'RGBA_UINT16_DATA',
+	25: 'RGBA_FLOAT32_DATA',
+	26: 'RGBA_FLOAT64_DATA',
+	27: 'POINT2_SINT16_0_DATA',
+	28: 'POINT2_SINT16_1_DATA',
+	29: 'POINT2_SINT32_0_DATA',
+	30: 'POINT2_FLOAT32_0_DATA',
+	31: 'RECT_SINT16_1_DATA',
+	32: 'RECT_SINT32_1_DATA',
+	33: 'RECT_FLOAT32_1_DATA',
+	34: 'RECT_FLOAT32_0_DATA',
+	35: 'SIGNED_INT64_DATA',
+	36: 'UNSIGNED_INT64_DATA',
+	37: 'LAST_DATA',
+	}
 
 ## other constants ##
 IMGLIST = "root.ImageList."
@@ -564,13 +606,16 @@ class DM3(object):
 	def getImage(self):
 		'''Extracts image data as Image'''
 		
-		# DataTypes for image data <--> PIL decoders
-		dataTypes = {
+		# PIL "raw" decoder modes for the various image dataTypes
+		dataTypesDec = {
 			1: 'F;16S',    #16-bit LE signed integer
 			2: 'F;32F',    #32-bit LE floating point
-			7: 'F;32S',   #32-bit LE signed integer
+			6: 'F;8',      #8-bit unsigned integer
+			7: 'F;32S',    #32-bit LE signed integer
+			9: 'F;8S',     #8-bit signed integer
 			10: 'F;16',    #16-bit LE unsigned integer
 			11: 'F;32',    #32-bit LE unsigned integer
+			#14: 'F;8',     #binary
 			}
 		
 		# get relevant Tags			
@@ -584,9 +629,9 @@ class DM3(object):
 			print "Notice: image data in %s starts at %s"%(os.path.split(self.__filename)[1], hex(data_offset))
 			print "Notice: image size: %sx%s px"%(im_width,im_height)
 						
-		# check if DataType is implemented, then read
-		if data_type in dataTypes.keys():
-			decoder = dataTypes[data_type]
+		# check if image DataType is implemented, then read
+		if data_type in dataTypesDec.keys():
+			decoder = dataTypesDec[data_type]
 			if self.debug>0:
 				print "Notice: image data read as %s"%decoder
 				t1 = time.time()
@@ -597,7 +642,7 @@ class DM3(object):
 				t2 = time.time()
 				print "| read image data: %.3g s"%(t2-t1)
 		else:	
-			raise Exception, "Cannot extract image data from %s: unimplemented DataType."%os.path.split(self.__filename)[1]
+			raise Exception, "Cannot extract image data from %s: unimplemented DataType (%s:%s)."%(os.path.split(self.__filename)[1],data_type,dataTypes[data_type])
 			
 		return im
 		
