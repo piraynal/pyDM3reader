@@ -604,7 +604,7 @@ class DM3(object):
 			print "Warning: could not save thumbnail."
 
 	def getImage(self):
-		'''Extracts image data as Image'''
+		'''Extracts image data as PIL Image'''
 		
 		# PIL "raw" decoder modes for the various image dataTypes
 		dataTypesDec = {
@@ -615,7 +615,7 @@ class DM3(object):
 			9: 'F;8S',     #8-bit signed integer
 			10: 'F;16',    #16-bit LE unsigned integer
 			11: 'F;32',    #32-bit LE unsigned integer
-			#14: 'F;8',     #binary
+			14: 'F;8',     #binary
 			}
 		
 		# get relevant Tags			
@@ -633,7 +633,7 @@ class DM3(object):
 		if data_type in dataTypesDec.keys():
 			decoder = dataTypesDec[data_type]
 			if self.debug>0:
-				print "Notice: image data read as %s"%decoder
+				print "Notice: image data type: %s ('%s'), read as %s"%(data_type,dataTypes[data_type],decoder)
 				t1 = time.time()
 			self.__f.seek( data_offset )
 			rawdata = self.__f.read(data_size)
@@ -643,7 +643,14 @@ class DM3(object):
 				print "| read image data: %.3g s"%(t2-t1)
 		else:	
 			raise Exception, "Cannot extract image data from %s: unimplemented DataType (%s:%s)."%(os.path.split(self.__filename)[1],data_type,dataTypes[data_type])
-			
+		
+		# if image dataType is BINARY, binarize image (i.e. px_value>0 is True)
+		if data_type == 14:
+			# convert Image to 'L' to apply point operation
+			im = im.convert('L')
+			# binarize
+			im = im.point(lambda v: v>0 or False)
+
 		return im
 		
 	image = property(getImage)
@@ -654,14 +661,14 @@ class DM3(object):
 
 	imagedata = property(getImageData)
 	
-	def getDisplayCuts(self):
-		'''Returns display level limits.'''
-		display_min = int( float( self.tags['root.DocumentObjectList.0.ImageDisplayInfo.LowLimit'] ) )
-		display_max = int( float( self.tags['root.DocumentObjectList.0.ImageDisplayInfo.HighLimit'] ) )
-		cuts = (display_min, display_max)
+	def getContrastLimits(self):
+		'''Returns display range (cuts).'''
+		low = int( float( self.tags['root.DocumentObjectList.0.ImageDisplayInfo.LowLimit'] ) )
+		high = int( float( self.tags['root.DocumentObjectList.0.ImageDisplayInfo.HighLimit'] ) )
+		cuts = (low, high)
 		return cuts
 	
-	cuts = property(getDisplayCuts)
+	cuts = property(getContrastLimits)
 
 	def getPixelSize(self):
 		'''Returns pixel size and unit.'''
@@ -676,7 +683,8 @@ class DM3(object):
 		return (pixel_size,unit)
 
 	pxsize = property(getPixelSize)
-			
+
+
 if __name__ == '__main__':
 	print "DM3lib v.%s"%version
 
