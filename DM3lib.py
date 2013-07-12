@@ -69,10 +69,10 @@ def readChar(f):
     read_bytes = f.read(1)
     return struct.unpack('c', read_bytes)[0]
 
-def readString(f, len=1):
-    '''Read len bytes as a string in file f'''
-    read_bytes = f.read(len)
-    str_fmt = '>'+str(len)+'s'
+def readString(f, len_=1):
+    '''Read len_ bytes as a string in file f'''
+    read_bytes = f.read(len_)
+    str_fmt = '>'+str(len_)+'s'
     return struct.unpack( str_fmt, read_bytes )[0]
 
 def readLEShort(f):
@@ -187,13 +187,13 @@ class DM3(object):
     ## utility functions
     def __makeGroupString(self):
         tString = self.__curGroupAtLevelX[0]
-        for i in range( 1, self.__curGroupLevel+1 ):
+        for i in xrange( 1, self.__curGroupLevel+1 ):
             tString += '.' + self.__curGroupAtLevelX[i]
         return tString
 
     def __makeGroupNameString(self):
         tString = self.__curGroupNameAtLevelX[0]
-        for i in range( 1, self.__curGroupLevel+1 ):
+        for i in xrange( 1, self.__curGroupLevel+1 ):
             tString += '.' + str( self.__curGroupNameAtLevelX[i] )
         return tString
 
@@ -217,13 +217,13 @@ class DM3(object):
         if ( debugLevel > 5):
             print "rTG: Iterating over the", nTags, "tag entries in this group"
         # read Tags
-        for i in range( nTags ):
+        for i in xrange( nTags ):
             self.__readTagEntry()
         # go back up one level as reading group is finished
         self.__curGroupLevel += -1
         return 1
 
-    def    __readTagEntry(self):
+    def __readTagEntry(self):
         # is data or a new group?
         data = readByte(self.__f)
         isData = (data == 21)
@@ -302,7 +302,7 @@ class DM3(object):
 
     def __readNativeData(self, encodedType, etSize):
         # reads ordinary data types
-        if encodedType in readFunc.keys():
+        if encodedType in readFunc:
             val = readFunc[encodedType](self.__f)
         else:
             raise Exception, "rND, " + hex(self.__f.tell()) + ": Unknown data type " + str(encodedType)
@@ -352,7 +352,7 @@ class DM3(object):
         itemSize = 0
         encodedType = 0
 
-        for i in range( len(arrayTypes) ):
+        for i in xrange( len(arrayTypes) ):
             encodedType = int( arrayTypes[i] )
             etSize = self.__encodedTypeSize(encodedType)
             itemSize += etSize
@@ -398,7 +398,7 @@ class DM3(object):
 
         fieldTypes = []
         nameLength = 0
-        for i in range( nFields ):
+        for i in xrange( nFields ):
             nameLength = readLong(self.__f)
             if ( debugLevel > 9 ):
                 print i + "th namelength = " + nameLength
@@ -409,7 +409,7 @@ class DM3(object):
 
     def __readStructData(self, structTypes):
         # reads struct data based on type info in structType
-        for i in range( len(structTypes) ):
+        for i in xrange( len(structTypes) ):
             encodedType = structTypes[i]
             etSize = self.__encodedTypeSize(encodedType)
 
@@ -443,10 +443,10 @@ class DM3(object):
         self.__chosenImage = 1
         # - track currently read group
         self.__curGroupLevel = -1
-        self.__curGroupAtLevelX = [ 0 for x in range(MAXDEPTH) ]
-        self.__curGroupNameAtLevelX = [ '' for x in range(MAXDEPTH) ]
+        self.__curGroupAtLevelX = [ 0 for x in xrange(MAXDEPTH) ]
+        self.__curGroupNameAtLevelX = [ '' for x in xrange(MAXDEPTH) ]
         # - track current tag
-        self.__curTagAtLevelX = [ '' for x in range(MAXDEPTH) ]
+        self.__curTagAtLevelX = [ '' for x in xrange(MAXDEPTH) ]
         self.__curTagName = ''
         # - open file for reading
         self.__f = open( self.__filename, 'rb' )
@@ -630,7 +630,7 @@ class DM3(object):
             print "Notice: image size: %sx%s px"%(im_width,im_height)
 
         # check if image DataType is implemented, then read
-        if data_type in dataTypesDec.keys():
+        if data_type in dataTypesDec:
             decoder = dataTypesDec[data_type]
             if self.debug>0:
                 print "Notice: image data type: %s ('%s'), read as %s"%(data_type,dataTypes[data_type],decoder)
