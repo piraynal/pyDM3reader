@@ -20,7 +20,7 @@ import time
 import struct
 
 from PIL import Image
-from scipy.misc import fromimage,imsave
+from scipy.misc import fromimage, imsave
 
 __all__ = ["DM3", "VERSION"]
 
@@ -31,20 +31,20 @@ debugLevel = 0   # 0=none, 1-3=basic, 4-5=simple, 6-10 verbose
 
 ### utility fuctions ###
 # Image to Array
-def im2ar( Image_ ):
+def im2ar( image_ ):
     """Convert PIL Image to Numpy array."""
-    if im.mode in ('L', 'I', 'F'):
+    if image_.mode in ('L', 'I', 'F'):
         # Warning: only works with PIL.Image.Image whose mode is 'L', 'I' or 'F'
         #          => error if mode == 'I;16' for instance
-        a = fromimage( Image_ )
-        return a
+        array_ = fromimage( image_ )
+        return array_
 #    else:
 #        return False
 
 ## Array to image file
-def ar2imfile(filename, a):
+def ar2imfile(filename, array_):
     """Save image in Numpy array to file."""
-    imsave(filename, a)
+    imsave(filename, array_)
 
 
 ### binary data reading functions ###
@@ -242,7 +242,7 @@ class DM3(object):
         else:
             tagLabel = str( self._curTagAtLevelX[self._curGroupLevel] )
         if ( debugLevel > 5):
-            print str(self._curGroupLevel)+"|"+_makeGroupString()+":",
+            print str(self._curGroupLevel)+"|"+self._makeGroupString()+":",
             print "Tag label = "+tagLabel
         elif ( debugLevel > 0 ):
             print str(self._curGroupLevel)+": Tag label = "+tagLabel
@@ -280,7 +280,7 @@ class DM3(object):
             width = 8
         else:
             # returns -1 for unrecognised types
-            width=-1
+            width = -1
         return width
 
     def _readAnyData(self):
@@ -333,7 +333,7 @@ class DM3(object):
             rString = ""
         else:
             if ( debugLevel > 3 ):
-                print "rSD @ " + str(f.tell()) + "/" + hex(f.tell()) +" :",
+                print "rSD @ " + str(self._f.tell()) + "/" + hex(self._f.tell()) +" :",
             ## !!! *Unicode* string (UTF-16)... convert to Python unicode str
             rString = readString(self._f, stringSize)
             rString = unicode(rString, "utf_16_le")
@@ -347,7 +347,7 @@ class DM3(object):
     def _readArrayTypes(self):
         # determines the data types in an array data type
         arrayType = readLong(self._f)
-        itemTypes=[]
+        itemTypes = []
         if ( arrayType == STRUCT ):
             itemTypes = self._readStructTypes()
         elif ( arrayType == ARRAY ):
@@ -362,7 +362,7 @@ class DM3(object):
         arraySize = readLong(self._f)
 
         if ( debugLevel > 3 ):
-            print "rArD, " + hex( f.tell() ) + ":", 
+            print "rArD, " + hex( self._f.tell() ) + ":", 
             print "Reading array of size = " + str(arraySize)
 
         itemSize = 0
@@ -530,10 +530,12 @@ class DM3(object):
                 dumpf.close
 
     def getFilename(self):
+        """Returns full file path."""
         return self._filename
     filename = property(getFilename)
 
     def getTags(self):
+        """Returns all image Tags."""
         return self._tagDict
     tags = property(getTags)
 
