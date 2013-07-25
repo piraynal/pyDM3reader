@@ -185,11 +185,13 @@ IMGLIST = "root.ImageList."
 OBJLIST = "root.DocumentObjectList."
 MAXDEPTH = 64
 
+OUTPUTCHARSET = 'utf-8'
 ## END constants ##
 
 
 class DM3(object):
     """DM3 object. """
+
     ## utility functions
     def _makeGroupString(self):
         tString = self._curGroupAtLevelX[0]
@@ -214,8 +216,8 @@ class DM3(object):
         if ( debugLevel > 5):
             print "rTG: Current Group Level:", self._curGroupLevel
         # is the group sorted?
-        sorted = readByte(self._f)
-        isSorted = (sorted == 1)
+        sorted_ = readByte(self._f)
+        isSorted = (sorted_ == 1)
         # is the group open?
         opened = readByte(self._f)
         isOpen = (opened == 1)
@@ -454,7 +456,9 @@ class DM3(object):
 
     ### END utility functions ###
 
-    def __init__(self, filename, dump=False, dump_dir='/tmp', debug=0):
+    def __init__(self, filename, 
+                 dump=False, dump_charset=OUTPUTCHARSET, dump_dir='/tmp',
+                 debug=0):
         """DM3 object: parses DM3 file and extracts Tags; 
         dumps Tags in a txt file if 'dump' set to True.
         """
@@ -526,7 +530,7 @@ class DM3(object):
                 print "Warning: cannot generate dump file."
             else:
                 for tag in self._storedTags:
-                    dumpf.write( tag.encode('latin-1') + "\n" )
+                    dumpf.write( tag.encode(dump_charset) + "\n" )
                 dumpf.close
 
     def getFilename(self):
@@ -539,7 +543,7 @@ class DM3(object):
         return self._tagDict
     tags = property(getTags)
 
-    def getInfo(self, info_charset='latin1'):
+    def getInfo(self, info_charset=OUTPUTCHARSET):
         """Extracts useful experiment info from DM3 file and
         exports thumbnail to a PNG file if 'make_tn' set to 'True'.
         """
@@ -588,7 +592,6 @@ class DM3(object):
                 )
             print "Notice: tn size: %sx%s px" % (tn_width, tn_height)
 
-        sizeError = False
         if (tn_width*tn_height*4) != tn_size:
             raise Exception("Cannot extract thumbnail from %s" 
                             % os.path.split(self._filename)[1])
