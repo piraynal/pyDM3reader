@@ -3,7 +3,6 @@
 
 ################################################################################
 ## Python script for parsing GATAN DM3 (DigitalMicrograph) files
-## and extracting various metadata
 ## --
 ## warning: *tested on single-image files only*
 ## --
@@ -24,7 +23,7 @@ from scipy.misc import fromimage, imsave
 
 __all__ = ["DM3", "VERSION"]
 
-VERSION = '1.0.dev'
+VERSION = '1.0'
 
 debugLevel = 0   # 0=none, 1-3=basic, 4-5=simple, 6-10 verbose
 
