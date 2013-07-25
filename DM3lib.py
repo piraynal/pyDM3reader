@@ -185,7 +185,7 @@ IMGLIST = "root.ImageList."
 OBJLIST = "root.DocumentObjectList."
 MAXDEPTH = 64
 
-OUTPUTCHARSET = 'utf-8'
+DEFAULTCHARSET = 'utf-8'
 ## END constants ##
 
 
@@ -292,7 +292,7 @@ class DM3(object):
         encodedType = readLong(self._f)
         # - calc size of encodedType
         etSize = self._encodedTypeSize(encodedType)
-        if ( debugLevel < 5):
+        if ( debugLevel > 5):
             print "rAnD, " + hex( self._f.tell() ) + ":",
             print "Tag Type = " + str(encodedType) + ",",
             print "Tag Size = " + str(etSize)
@@ -456,15 +456,12 @@ class DM3(object):
 
     ### END utility functions ###
 
-    def __init__(self, filename, 
-                 dump=False, dump_charset=OUTPUTCHARSET, dump_dir='/tmp',
-                 debug=0):
-        """DM3 object: parses DM3 file and extracts Tags; 
-        dumps Tags in a txt file if 'dump' set to True.
-        """
+    def __init__(self, filename, debug=0):
+        """DM3 object: parses DM3 file."""
 
         ## initialize variables ##
         self.debug = debug
+        self._outputcharset = DEFAULTCHARSET
         self._filename = filename
         self._chosenImage = 1
         # - track currently read group
@@ -519,35 +516,44 @@ class DM3(object):
             t2 = time.time()
             print "| parse DM3 file: %.3g s" % (t2-t1)
 
-        # dump Tags in txt file if requested
-        if dump:
-            dump_file = os.path.join(dump_dir,
-                                     os.path.split(self._filename)[1]
-                                     +".tagdump.txt")
-            try:
-                dumpf = open( dump_file, 'w' )
-            except:
-                print "Warning: cannot generate dump file."
-            else:
-                for tag in self._storedTags:
-                    dumpf.write( tag.encode(dump_charset) + "\n" )
-                dumpf.close
 
-    def getFilename(self):
+    @property
+    def outputcharset(self):
+        """Returns Tag dump/output charset."""
+        return self._outputcharset
+
+    @outputcharset.setter
+    def outputcharset(self, value):
+        """Set Tag dump/output charset."""
+        self._outputcharset = value
+
+    @property
+    def filename(self):
         """Returns full file path."""
         return self._filename
-    filename = property(getFilename)
 
-    def getTags(self):
+    @property
+    def tags(self):
         """Returns all image Tags."""
         return self._tagDict
-    tags = property(getTags)
+ 
+    def dumpTags(self, dump_dir='/tmp'):
+        """Dumps image Tags in a txt file."""
+        dump_file = os.path.join(dump_dir,
+                                 os.path.split(self._filename)[1] 
+                                 + ".tagdump.txt")
+        try:
+            dumpf = open( dump_file, 'w' )
+        except:
+            print "Warning: cannot generate dump file."
+        else:
+            for tag in self._storedTags:
+                dumpf.write( tag.encode(self._outputcharset) + "\n" )
+            dumpf.close
 
-    def getInfo(self, info_charset=OUTPUTCHARSET):
-        """Extracts useful experiment info from DM3 file and
-        exports thumbnail to a PNG file if 'make_tn' set to 'True'.
-        """
-
+    @property
+    def info(self):
+        """Extracts useful experiment info from DM3 file."""
         # define useful information
         tag_root = 'root.ImageList.1'
         info_keys = {
@@ -563,22 +569,20 @@ class DM3(object):
             'specimen': "%s.ImageTags.Microscope Info.Specimen" % tag_root,
         #    'image_notes': "root.DocumentObjectList.10.Text' # = Image Notes
             }
-
         # get experiment information
         infoDict = {}
         for key, tag_name in info_keys.items():
             if self.tags.has_key(tag_name):
                 # tags supplied as Python unicode str; convert to chosen charset
                 # (typically latin-1 or utf-8)
-                infoDict[key] = self.tags[tag_name].encode(info_charset)
-
+                infoDict[key] = self.tags[tag_name].encode(self._outputcharset)
         # return experiment information
         return infoDict
+ 
 
-    info = property(getInfo)
-
-    def getThumbnail(self, asDict=False):
-        """Returns thumbnail as Image or dict."""
+    @property
+    def thumbnail(self):
+        """Returns thumbnail as PIL Image."""
         # get thumbnail
         tag_root = 'root.ImageList.0'
         tn_size = int( self.tags["%s.ImageData.Data.Size" % tag_root] )
@@ -604,24 +608,13 @@ class DM3(object):
             # - rescale and convert px data
             tn = tn.point(lambda x: x * (1./65536) + 0)
             tn = tn.convert('L')
+        # - return image
+        return tn
 
-        if asDict:
-            # - fill tnDict
-            tnDict = {}
-            tnDict['size'] = tn.size
-            tnDict['mode'] = tn.mode
-            tnDict['rawdata'] = tn.tostring()
-            return tnDict
-        else:
-            return tn
-
-    thumbnail = property(getThumbnail)
-
-    def getThumbnailData(self):
+    @property
+    def thumbnaildata(self):
         """Returns thumbnail data as numpy.array"""
         return im2ar(self.thumbnail)
-
-    thumbnaildata = property(getThumbnailData)
 
     def makePNGThumbnail(self, tn_file=''):
         """Save thumbnail as PNG file."""
@@ -642,7 +635,9 @@ class DM3(object):
         except:
             print "Warning: could not save thumbnail."
 
-    def getImage(self):
+
+    @property
+    def image(self):
         """Extracts image data as PIL Image"""
 
         # PIL "raw" decoder modes for the various image dataTypes
@@ -702,25 +697,28 @@ class DM3(object):
 
         return im
 
-    image = property(getImage)
-
-    def getImageData(self):
+    @property
+    def imagedata(self):
         """Extracts image data as numpy.array"""
         return im2ar(self.image)
 
-    imagedata = property(getImageData)
-
-    def getContrastLimits(self):
+    @property
+    def contrastlimits(self):
         """Returns display range (cuts)."""
         tag_root = 'root.DocumentObjectList.0'
         low = int(float(self.tags["%s.ImageDisplayInfo.LowLimit" % tag_root]))
         high = int(float(self.tags["%s.ImageDisplayInfo.HighLimit" % tag_root]))
         cuts = (low, high)
         return cuts
+    
+    @property
+    def cuts(self):
+        """Returns display range (cuts)."""
+        return self.contrastlimits
 
-    cuts = property(getContrastLimits)
 
-    def getPixelSize(self):
+    @property
+    def pxsize(self):
         """Returns pixel size and unit."""
         tag_root = 'root.ImageList.1'
         pixel_size = float(
@@ -735,9 +733,8 @@ class DM3(object):
             print "pixel size = %s %s" % (pixel_size, unit)
         return (pixel_size, unit)
 
-    pxsize = property(getPixelSize)
 
-
+## MAIN ##
 if __name__ == '__main__':
     print "DM3lib %s" % VERSION
 

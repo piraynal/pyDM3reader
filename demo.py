@@ -43,7 +43,7 @@ plt.ion()
 plt.close('all')
 
 # parse DM3 file
-dm3f = dm3.DM3(filepath, dump=args.dump, dump_dir=savedir, debug=debug)
+dm3f = dm3.DM3(filepath, debug=debug)
 
 # get some useful tag data and print
 print "file:", dm3f.filename
@@ -52,6 +52,10 @@ print dm3f.info
 print "scale: %.3g %s/px"%dm3f.pxsize
 cuts = dm3f.cuts
 print "cuts:",cuts
+
+# dump image Tags in txt file
+if args.dump:
+    dm3f.dumpTags(savedir)
 
 # get image data
 aa = dm3f.imagedata
