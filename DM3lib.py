@@ -20,6 +20,8 @@ import os
 import time
 import struct
 
+from codecs import utf_16_le_decode
+
 from PIL import Image
 from scipy.misc import fromimage, imsave
 
@@ -195,9 +197,9 @@ class DM3(object):
 
     ## utility functions
     def _makeGroupString(self):
-        tString = str( self._curGroupAtLevelX[0] )
-        for i in xrange( 1, self._curGroupLevel+1 ):
-            tString += '.' + str( self._curGroupAtLevelX[i] )
+        tString = str(self._curGroupAtLevelX[0])
+        for i in range( 1, self._curGroupLevel+1 ):
+            tString += '.{}'.format(self._curGroupAtLevelX[i])
         return tString
 
     def _makeGroupNameString(self):
@@ -241,7 +243,7 @@ class DM3(object):
         # get tag label if exists
         lenTagLabel = readShort(self._f)
         if ( lenTagLabel != 0 ):
-            tagLabel = readString(self._f, lenTagLabel)
+            tagLabel = readString(self._f, lenTagLabel).decode('latin-1')
         else:
             tagLabel = str( self._curTagAtLevelX[self._curGroupLevel] )
         if ( debugLevel > 5):
@@ -262,7 +264,7 @@ class DM3(object):
         return 1
 
     def _readTagType(self):
-        delim = readString(self._f, 4)
+        delim = readString(self._f, 4).decode('latin-1')
         if ( delim != '%%%%' ):
             raise Exception(hex( self._f.tell() )
                             + ": Tag Type delimiter not %%%%")
@@ -340,7 +342,7 @@ class DM3(object):
                 print("rSD @ " + str(self._f.tell()) + "/" + hex(self._f.tell()) +" :", end=' ')
             ## !!! *Unicode* string (UTF-16)... convert to Python unicode str
             rString = readString(self._f, stringSize)
-            rString = unicode(rString, "utf_16_le")
+            rString = utf_16_le_decode(rString)[0]
             if ( debugLevel > 3 ):
                 print(rString + "   <"  + repr( rString ) + ">")
         if ( debugLevel > 0 ):
@@ -444,14 +446,9 @@ class DM3(object):
         return 1
 
     def _storeTag(self, tagName, tagValue):
-        # NB: all tag values (and names) stored as unicode objects;
-        #     => can then be easily converted to any encoding
-        # - /!\ tag names may not be ascii char only
-        #       (e.g. '\xb5', i.e. MICRO SIGN)
-        tagName = unicode(tagName, 'latin-1')
         # - convert tag value to unicode if not already unicode object
         #   (as for string data)
-        tagValue = unicode(tagValue)
+        tagValue = str(tagValue)
         # store Tags as list and dict
         self._storedTags.append( tagName + " = " + tagValue )
         self._tagDict[tagName] = tagValue
@@ -550,7 +547,7 @@ class DM3(object):
             print("Warning: cannot generate dump file.")
         else:
             for tag in self._storedTags:
-                dumpf.write( tag.encode(self._outputcharset) + "\n" )
+                dumpf.write( "{}\n".format(tag.encode(self._outputcharset)))
             dumpf.close
 
     @property
