@@ -201,8 +201,8 @@ class DM3(object):
         return tString
 
     def _makeGroupNameString(self):
-        tString = str( self._curGroupNameAtLevelX[0] )
-        for i in xrange( 1, self._curGroupLevel+1 ):
+        tString = self._curGroupNameAtLevelX[0]
+        for i in range( 1, self._curGroupLevel+1 ):
             tString += '.' + str( self._curGroupNameAtLevelX[i] )
         return tString
 
@@ -227,7 +227,7 @@ class DM3(object):
         if ( debugLevel > 5):
             print("rTG: Iterating over the", nTags, "tag entries in this group")
         # read Tags
-        for i in xrange( nTags ):
+        for i in range( nTags ):
             self._readTagEntry()
         # go back up one level as reading group is finished
         self._curGroupLevel += -1
@@ -372,7 +372,7 @@ class DM3(object):
         itemSize = 0
         encodedType = 0
 
-        for i in xrange( len(arrayTypes) ):
+        for i in range( len(arrayTypes) ):
             encodedType = int( arrayTypes[i] )
             etSize = self._encodedTypeSize(encodedType)
             itemSize += etSize
@@ -419,7 +419,7 @@ class DM3(object):
 
         fieldTypes = []
         nameLength = 0
-        for i in xrange( nFields ):
+        for i in range( nFields ):
             nameLength = readLong(self._f)
             if ( debugLevel > 9 ):
                 print("{}th nameLength = {}".format(i, nameLength))
@@ -430,7 +430,7 @@ class DM3(object):
 
     def _readStructData(self, structTypes):
         # reads struct data based on type info in structType
-        for i in xrange( len(structTypes) ):
+        for i in range( len(structTypes) ):
             encodedType = structTypes[i]
             etSize = self._encodedTypeSize(encodedType)
 
@@ -468,10 +468,10 @@ class DM3(object):
         self._chosenImage = 1
         # - track currently read group
         self._curGroupLevel = -1
-        self._curGroupAtLevelX = [ 0 for x in xrange(MAXDEPTH) ]
-        self._curGroupNameAtLevelX = [ '' for x in xrange(MAXDEPTH) ]
+        self._curGroupAtLevelX = [ 0 for x in range(MAXDEPTH) ]
+        self._curGroupNameAtLevelX = [ '' for x in range(MAXDEPTH) ]
         # - track current tag
-        self._curTagAtLevelX = [ '' for x in xrange(MAXDEPTH) ]
+        self._curTagAtLevelX = [ '' for x in range(MAXDEPTH) ]
         self._curTagName = ''
         # - open file for reading
         self._f = open( self._filename, 'rb' )
