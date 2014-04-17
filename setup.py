@@ -9,7 +9,7 @@ setup(
     package_data = {
         # If any package contains *.txt or *.rst files, include them:
         '': ['*.txt', '*.rst'],
-        '': ['demo.py', 'utilities.py'],
+        'dm3_lib': ['demo/demo.py', 'demo/utilities.py'],
     },
 
     # metadata for upload to PyPI
