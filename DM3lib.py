@@ -574,7 +574,7 @@ class DM3(object):
             if tag_name in self.tags:
                 # tags supplied as Python unicode str; convert to chosen charset
                 # (typically latin-1 or utf-8)
-                infoDict[key] = self.tags[tag_name].encode(self._outputcharset)
+                infoDict[key] = self.tags[tag_name]
         # return experiment information
         return infoDict
 
