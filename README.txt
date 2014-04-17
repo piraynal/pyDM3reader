@@ -33,7 +33,7 @@ Usage
 
 Use in your own script would typically require lines such as:
 
-	import DM3lib as dm3
+	import dm3_lib as dm3
 	import matplotlib.pyplot as plt
 	# parse DM3 file
 	dm3f = dm3.DM3("sample.dm3")
