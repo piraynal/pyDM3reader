@@ -54,6 +54,8 @@ Use in your own script would typically require lines such as::
     plt.matshow(dm3f.imagedata, vmin=dm3f.cuts[0], vmax=dm3f.cuts[1])
     plt.colorbar(shrink=.8)
 
+A more detailed example is located in `site-packages/dm3_lib/demo` directory
+under the name `demo.py`.
 
 Known Issues
 ============
