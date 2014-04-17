@@ -19,6 +19,16 @@ setup(
     license = "GPLv3",
     keywords = "DigitalMicrograph Gatan Microscopy",
     url = "http://microscopies.med.univ-tours.fr/",   # project home page, if any
-
+    classifiers=[
+        'Development Status :: 4 - Beta',
+        'Environment :: Console',
+        'Intended Audience :: Science/Research',
+        'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)'
+        'Natural Language :: English',
+        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.4',
+        'Topic :: Scientific/Engineering :: Visualization'],
+    # List of classifiers:
+    # https://pypi.python.org/pypi?%3Aaction=list_classifiers
     # could also include long_description, download_url, classifiers, etc.
 )
