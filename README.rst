@@ -26,7 +26,7 @@ PNG file.
 Dependencies
 ============
 
- - Python Imaging Library
+ - Pillow (fork of Python Imaging Library)
  - NumPy
  - SciPy
 
