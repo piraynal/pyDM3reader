@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 from PIL import Image
 
-import DM3lib as dm3
+import dm3_lib as dm3
 
 from utilities import calcHistogram, calcDisplayRange
 
