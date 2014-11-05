@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 setup(
-    name = "DM3lib",
+    name = "dm3_lib",
     version = "1.0",
     packages = ['dm3_lib'],
 
@@ -16,14 +16,14 @@ setup(
     author = "Pierre-Ivan Raynal",
     author_email = "raynal@univ-tours.fr",
     description = "Python module for parsing GATAN DM3 (DigitalMicrograph) files",
-    license = "GPLv3",
-    keywords = "DigitalMicrograph Gatan Microscopy",
+    license = "MIT",
+    keywords = "GATAN DigitalMicrograph DM3 Transmission Electron Microscopy",
     url = "http://microscopies.med.univ-tours.fr/",   # project home page, if any
     classifiers=[
         'Development Status :: 4 - Beta',
         'Environment :: Console',
         'Intended Audience :: Science/Research',
-        'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)'
+        'License :: OSI Approved :: MIT License (MIT)'
         'Natural Language :: English',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3.4',
