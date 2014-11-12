@@ -1,13 +1,10 @@
 TODO file for pyDM3lib
 ======================
 
-- code cleanup
+- limit PIL/Pillow dependency (read data using numpy)
 - wider image data type support
-- check Pillow lib compatibility
+- more code cleanup
 - ...
-- DM4 support?
 
-+ explicit License (GPLv3? Public Domain?)
 + check against newer IJ DM3_Reader versions
-+ README/TODO files in MarkDown format
-+ check credits
++ DM4 support?
