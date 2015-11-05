@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import print_function, division
+
 import os.path
 import argparse
 
@@ -8,7 +10,7 @@ import matplotlib.pyplot as plt
 
 from PIL import Image
 
-import DM3lib as dm3
+import dm3_lib as dm3
 
 from utilities import calcHistogram, calcDisplayRange
 
@@ -46,12 +48,12 @@ plt.close('all')
 dm3f = dm3.DM3(filepath, debug=debug)
 
 # get some useful tag data and print
-print "file:", dm3f.filename
-print "file info.:"
-print dm3f.info
-print "scale: %.3g %s/px"%dm3f.pxsize
+print("file:", dm3f.filename)
+print("file info.:")
+print(dm3f.info)
+print("scale: %.3g %s/px"%dm3f.pxsize)
 cuts = dm3f.cuts
-print "cuts:",cuts
+print("cuts:",cuts)
 
 # dump image Tags in txt file
 if args.dump:
@@ -93,7 +95,7 @@ if args.convert:
         tif_range = "8-bit"
     else:
         tif_range = "32-bit"
-    print "Image saved as %s TIFF."%tif_range
+    print("Image saved as %s TIFF."%tif_range)
 
     # save image as PNG and JPG files
     # - normalize image for conversion to 8-bit
