@@ -27,7 +27,7 @@ from scipy.misc import fromimage, imsave
 
 __all__ = ["DM3", "VERSION"]
 
-VERSION = '1.0'
+VERSION = '1.1'
 
 debugLevel = 0   # 0=none, 1-3=basic, 4-5=simple, 6-10 verbose
 
