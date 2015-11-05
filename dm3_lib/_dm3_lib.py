@@ -4,8 +4,6 @@
 ################################################################################
 ## Python script for parsing GATAN DM3 (DigitalMicrograph) files
 ## --
-## warning: *tested on single-image files only*
-## --
 ## based on the DM3_Reader plug-in (v 1.3.4) for ImageJ
 ## by Greg Jefferis <jefferis@stanford.edu>
 ## http://rsb.info.nih.gov/ij/plugins/DM3_Reader.html
@@ -24,23 +22,27 @@ from codecs import utf_16_le_decode
 
 from PIL import Image
 from scipy.misc import fromimage, imsave
+from numpy import vsplit
 
 __all__ = ["DM3", "VERSION"]
 
-VERSION = '1.0'
+VERSION = '1.1'
 
 debugLevel = 0   # 0=none, 1-3=basic, 4-5=simple, 6-10 verbose
 
 
 ### utility fuctions ###
 # Image to Array
-def im2ar( image_ ):
+def im2ar( image_, numImages=1 ):
     """Convert PIL Image to Numpy array."""
     if image_.mode in ('L', 'I', 'F'):
         # Warning: only works with PIL.Image.Image whose mode is 'L', 'I' or 'F'
         #          => error if mode == 'I;16' for instance
         array_ = fromimage( image_ )
-        return array_
+        if numImages==1:
+            return array_
+        elif numImages>1:
+            return vsplit( array_, numImages )
 #    else:
 #        return False
 
@@ -658,13 +660,19 @@ class DM3(object):
         data_type = int( self.tags["%s.ImageData.DataType" % tag_root] )
         im_width = int( self.tags["%s.ImageData.Dimensions.0" % tag_root] )
         im_height = int( self.tags["%s.ImageData.Dimensions.1" % tag_root] )
+        try:
+            self.im_depth = int( self.tags['root.ImageList.1.ImageData.Dimensions.2'] )
+        except KeyError:
+            self.im_depth = 1        
 
         if self.debug > 0:
             print("Notice: image data in %s starts at %s" % (
                 os.path.split(self._filename)[1], hex(data_offset)
                 ))
             print("Notice: image size: %sx%s px" % (im_width, im_height))
-
+            if self.im_depth>1:
+                print("Notice: %s image stack" % (self.im_depth))
+			
         # check if image DataType is implemented, then read
         if data_type in dataTypesDec:
             decoder = dataTypesDec[data_type]
@@ -675,8 +683,8 @@ class DM3(object):
                 t1 = time.time()
             self._f.seek( data_offset )
             rawdata = self._f.read(data_size)
-            im = Image.fromstring( 'F', (im_width, im_height), rawdata,
-                                   'raw', decoder )
+            im = Image.fromstring( 'F', (im_width, im_height*self.im_depth),
+                                    rawdata, 'raw', decoder )
             if self.debug > 0:
                 t2 = time.time()
                 print("| read image data: %.3g s" % (t2-t1))
@@ -699,7 +707,7 @@ class DM3(object):
     @property
     def imagedata(self):
         """Extracts image data as numpy.array"""
-        return im2ar(self.image)
+        return im2ar(self.image, numImages=self.im_depth)
 
     @property
     def contrastlimits(self):
