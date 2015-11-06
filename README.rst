@@ -10,6 +10,7 @@ Author:
 
 Contributions by:
 `Philippe Mallet-Ladeira <mailto:philippe.mallet@cemes.fr>`_
+`Jordan Chess <mailto:jchess@uoregon.edu>`_
 
 This Python module is a transposition and adaptation of the `DM3_Reader`
 `ImageJ plug-in <http://rsb.info.nih.gov/ij/plugins/DM3_Reader.html>`_ by
@@ -60,5 +61,4 @@ under the name `demo.py`.
 Known Issues
 ============
 
-This DM3 parser has only been tested on single-image files (i.e. not stacks)
-and not all data types are implemented yet.
+Not all data types are implemented yet.

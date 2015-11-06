@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 setup(
     name = "dm3_lib",
-    version = "1.1",
+    version = "1.2dev",
     packages = ['dm3_lib'],
 
     install_requires = ['pillow>=2.3.1', 'numpy', 'scipy'],
