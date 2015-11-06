@@ -26,7 +26,7 @@ from numpy import vsplit
 
 __all__ = ["DM3", "VERSION"]
 
-VERSION = '1.1'
+VERSION = '1.2dev'
 
 debugLevel = 0   # 0=none, 1-3=basic, 4-5=simple, 6-10 verbose
 
@@ -252,7 +252,7 @@ class DM3(object):
             print("{}|{}:".format(self._curGroupLevel, self._makeGroupString()),
                   end=' ')
             print("Tag label = "+tagLabel)
-        elif ( debugLevel > 0 ):
+        elif ( debugLevel > 1 ):
             print(str(self._curGroupLevel)+": Tag label = "+tagLabel)
         if isData:
             # give it a name
@@ -331,7 +331,7 @@ class DM3(object):
                             + ": Unknown data type " + str(encodedType))
         if ( debugLevel > 3 ):
             print("rND, " + hex(self._f.tell()) + ": " + str(val))
-        elif ( debugLevel > 0 ):
+        elif ( debugLevel > 1 ):
             print(val)
         return val
 
@@ -347,7 +347,7 @@ class DM3(object):
             rString = utf_16_le_decode(rString)[0]
             if ( debugLevel > 3 ):
                 print(rString + "   <"  + repr( rString ) + ">")
-        if ( debugLevel > 0 ):
+        if ( debugLevel > 1 ):
             print("StringVal:", rString)
         self._storeTag( self._curTagName, rString )
         return rString
@@ -448,12 +448,16 @@ class DM3(object):
         return 1
 
     def _storeTag(self, tagName, tagValue):
-        # - convert tag value to unicode if not already unicode object
-        #   (as for string data)
-        tagValue = str(tagValue)
         # store Tags as list and dict
-        self._storedTags.append( tagName + " = " + tagValue )
-        self._tagDict[tagName] = tagValue
+        # NB: all tag values (and names) stored as unicode objects;
+        #     => can then be easily converted to any encoding
+        if ( debugLevel == 1 ):
+            print(" - storing Tag:")
+            print("  -- name:  ", tagName)
+            print("  -- value: ", tagValue, type(tagValue))
+        # - convert tag value to unicode if not already unicode object
+        self._storedTags.append( tagName + " = " + unicode(tagValue) )
+        self._tagDict[tagName] = unicode(tagValue)
 
     ### END utility functions ###
 
@@ -576,7 +580,7 @@ class DM3(object):
             if tag_name in self.tags:
                 # tags supplied as Python unicode str; convert to chosen charset
                 # (typically latin-1 or utf-8)
-                infoDict[key] = self.tags[tag_name]
+                infoDict[key] = self.tags[tag_name].encode(self._outputcharset)
         # return experiment information
         return infoDict
 
