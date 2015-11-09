@@ -22,7 +22,8 @@ from codecs import utf_16_le_decode
 
 from PIL import Image
 from scipy.misc import fromimage, imsave
-from numpy import vsplit
+
+import numpy
 
 __all__ = ["DM3", "VERSION"]
 
@@ -42,7 +43,7 @@ def im2ar( image_, numImages=1 ):
         if numImages==1:
             return array_
         elif numImages>1:
-            return vsplit( array_, numImages )
+            return numpy.vsplit( array_, numImages )
 #    else:
 #        return False
 
@@ -709,9 +710,74 @@ class DM3(object):
         return im
 
     @property
-    def imagedata(self):
+    def imagedata_old(self):
         """Extracts image data as numpy.array"""
         return im2ar(self.image, numImages=self.im_depth)
+
+    @property
+    def imagedata(self):
+        """Extracts image data as numpy.array (w/o using PIL)"""
+
+        # numpy dtype strings associated to the various image dataTypes
+        dT_str = {
+            1: '<i2',     #16-bit LE signed integer
+            2: '<f4',     #32-bit LE floating point
+            6: 'u1',      #8-bit unsigned integer
+            7: '<i4',     #32-bit LE signed integer
+            9: 'i1',      #8-bit signed integer
+            10: '<u2',    #16-bit LE unsigned integer
+            11: '<u4',    #32-bit LE unsigned integer
+            14: 'u1',     #binary
+            }
+
+        # get relevant Tags
+        tag_root = 'root.ImageList.1'
+        data_offset = int( self.tags["%s.ImageData.Data.Offset" % tag_root] )
+        data_size = int( self.tags["%s.ImageData.Data.Size" % tag_root] )
+        data_type = int( self.tags["%s.ImageData.DataType" % tag_root] )
+        im_width = int( self.tags["%s.ImageData.Dimensions.0" % tag_root] )
+        im_height = int( self.tags["%s.ImageData.Dimensions.1" % tag_root] )
+        try:
+            im_depth = int( self.tags['root.ImageList.1.ImageData.Dimensions.2'] )
+        except KeyError:
+            im_depth = 1        
+
+        if self.debug > 0:
+            print("Notice: image data in %s starts at %s" % (
+                os.path.split(self._filename)[1], hex(data_offset)
+                ))
+            print("Notice: image size: %sx%s px" % (im_width, im_height))
+            if im_depth>1:
+                print("Notice: %s-image stack" % (im_depth))
+
+        # check if image DataType is implemented, then read
+        if data_type in dT_str:
+            np_dt = numpy.dtype( dT_str[data_type] )
+            if self.debug > 0:
+                print("Notice: image data type: %s ('%s'), read as %s" % (
+                    data_type, dataTypes[data_type], np_dt
+                    ))
+                t1 = time.time()
+            self._f.seek( data_offset )
+            # - fetch image data
+            rawdata = self._f.read(data_size)
+            # - convert raw to numpy array w/ correct dtype
+            ima = numpy.fromstring(rawdata, dtype=np_dt)
+            # - reshape to matrix or stack
+            if im_depth > 1:
+                ima = ima.reshape(im_depth, im_height, im_width)
+            else:
+                ima = ima.reshape(im_height, im_width)
+            if self.debug > 0:
+                t2 = time.time()
+                print("| read image data as array: %.3g s" % (t2-t1))
+        else:
+            raise Exception(
+                "Cannot extract image data from %s: unimplemented DataType (%s:%s)." %
+                (os.path.split(self._filename)[1], data_type, dataTypes[data_type])
+                )
+
+        return ima
 
     @property
     def contrastlimits(self):
