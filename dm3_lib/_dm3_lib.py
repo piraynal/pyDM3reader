@@ -47,7 +47,7 @@ def im2ar( image_, numImages=1 ):
 #    else:
 #        return False
 
-## Array to image file
+# Array to image file
 def ar2imfile(filename, array_):
     """Save image in Numpy array to file."""
     imsave(filename, array_)
@@ -608,7 +608,7 @@ class DM3(object):
         else:
             self._f.seek( tn_offset )
             rawdata = self._f.read(tn_size)
-            # - read as 16-bit LE unsigned integer
+            # - read as 32-bit LE unsigned integer
             tn = Image.fromstring( 'F', (tn_width, tn_height), rawdata,
                                    'raw', 'F;32' )
             # - rescale and convert px data
@@ -618,9 +618,46 @@ class DM3(object):
         return tn
 
     @property
-    def thumbnaildata(self):
+    def thumbnaildata_old(self):
         """Returns thumbnail data as numpy.array"""
         return im2ar(self.thumbnail)
+
+    @property
+    def thumbnaildata(self):
+        """Fetch thumbnail image data as numpy.array (w/o using PIL)"""
+ 
+        # get useful thumbnail Tags
+        tag_root = 'root.ImageList.0'
+        tn_size = int( self.tags["%s.ImageData.Data.Size" % tag_root] )
+        tn_offset = int( self.tags["%s.ImageData.Data.Offset" % tag_root] )
+        tn_width = int( self.tags["%s.ImageData.Dimensions.0" % tag_root] )
+        tn_height = int( self.tags["%s.ImageData.Dimensions.1" % tag_root] )
+
+        if self.debug > 0:
+            print("Notice: tn data in %s starts at %s" % (
+                os.path.split(self._filename)[1], hex(tn_offset)
+                ))
+            print("Notice: tn size: %sx%s px" % (tn_width, tn_height))
+
+        # get thumbnail data
+        if (tn_width*tn_height*4) == tn_size:
+            self._f.seek(tn_offset)
+            rawtndata = self._f.read(tn_size)
+            print('## rawdata:', len(rawtndata))
+           # - read as 32-bit LE unsigned integer
+            np_dt_tn = numpy.dtype('<u4')
+            tndata = numpy.fromstring(rawtndata, dtype=np_dt_tn)
+            print('## tndata:', len(tndata))
+            tndata = tndata.reshape(tn_height, tn_width)
+            # - rescale and convert to integer
+            tndata = tndata/65536. + 0.
+            tndata = tndata.astype(int)
+            # - return thumbnail data
+            return tndata
+        else:
+            raise Exception("Cannot extract thumbnail from %s"
+                            % os.path.split(self._filename)[1])
+
 
     def makePNGThumbnail(self, tn_file=''):
         """Save thumbnail as PNG file."""
