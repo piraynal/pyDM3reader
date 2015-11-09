@@ -814,6 +814,11 @@ class DM3(object):
                 (os.path.split(self._filename)[1], data_type, dataTypes[data_type])
                 )
 
+        # if image dataType is BINARY, binarize image
+        # (i.e., px_value>0 is True)
+        if data_type == 14:
+            ima = (ima > 0) * 1
+
         return ima
 
     @property
