@@ -35,7 +35,7 @@ debugLevel = 0   # 0=none, 1-3=basic, 4-5=simple, 6-10 verbose
 ### utility fuctions ###
 # Image to Array
 def im2ar( image_, numImages=1 ):
-    """Convert PIL Image to Numpy array."""
+    """Convert PIL Image to Numpy array [deprecated]."""
     if image_.mode in ('L', 'I', 'F'):
         # Warning: only works with PIL.Image.Image whose mode is 'L', 'I' or 'F'
         #          => error if mode == 'I;16' for instance
@@ -466,7 +466,7 @@ class DM3(object):
         """DM3 object: parses DM3 file."""
 
         ## initialize variables ##
-        self.debug = debug
+        self._debug = debug
         self._outputcharset = DEFAULTCHARSET
         self._filename = filename
         self._chosenImage = 1
@@ -483,7 +483,7 @@ class DM3(object):
         self._storedTags = []
         self._tagDict = {}
 
-        if self.debug > 0:
+        if self._debug > 0:
             t1 = time.time()
         isDM3 = True
         ## read header (first 3 4-byte int)
@@ -502,10 +502,10 @@ class DM3(object):
         if not isDM3:
             raise Exception("%s does not appear to be a DM3 file."
                             % os.path.split(self._filename)[1])
-        elif self.debug > 0:
+        elif self._debug > 0:
             print("%s appears to be a DM3 file" % (self._filename))
 
-        if ( debugLevel > 5 or self.debug > 1):
+        if ( debugLevel > 5 or self._debug > 1):
             print("Header info.:")
             print("- file version:", fileVersion)
             print("- lE:", lE)
@@ -515,13 +515,58 @@ class DM3(object):
         self._curGroupNameAtLevelX[0] = "root"
         # ... then read it
         self._readTagGroup()
-        if self.debug > 0:
+        if self._debug > 0:
             print("-- %s Tags read --" % len(self._storedTags))
 
-        if self.debug > 0:
+        # fetch image characteristics
+        tag_root = 'root.ImageList.1'
+        self._data_type = int( self.tags["%s.ImageData.DataType" % tag_root] )
+        self._im_width = int( self.tags["%s.ImageData.Dimensions.0" % tag_root] )
+        self._im_height = int( self.tags["%s.ImageData.Dimensions.1" % tag_root] )
+        try:
+            self._im_depth = int( self.tags['root.ImageList.1.ImageData.Dimensions.2'] )
+        except KeyError:
+            self._im_depth = 1        
+
+        if self._debug > 0:
             t2 = time.time()
             print("| parse DM3 file: %.3g s" % (t2-t1))
+            print("Notice: image size: %sx%s px" % (self._im_width, self._im_height))
+            if self._im_depth>1:
+                print("Notice: %s image stack" % (self._im_depth))
 
+    @property
+    def data_type(self):
+        """Returns image DataType."""
+        return self._data_type
+
+    @property
+    def data_type_str(self):
+        """Returns image DataType string."""
+        return dataTypes[self._data_type]
+
+    @property
+    def width(self):
+        """Returns image width (px)."""
+        return self._im_width
+
+    @property
+    def height(self):
+        """Returns image height (px)."""
+        return self._im_height
+
+    @property
+    def depth(self):
+        """Returns image depth (i.e. number of images in stack)."""
+        return self._im_depth
+
+    @property
+    def size(self):
+        """Returns image size (width,height[,depth])."""
+        if self._im_depth > 1:
+            return (self._im_width, self._im_height, self._im_depth)
+        else:
+            return (self._im_width, self._im_height)
 
     @property
     def outputcharset(self):
@@ -596,7 +641,7 @@ class DM3(object):
         tn_width = int( self.tags["%s.ImageData.Dimensions.0" % tag_root] )
         tn_height = int( self.tags["%s.ImageData.Dimensions.1" % tag_root] )
 
-        if self.debug > 0:
+        if self._debug > 0:
             print("Notice: tn data in %s starts at %s" % (
                 os.path.split(self._filename)[1], hex(tn_offset)
                 ))
@@ -619,7 +664,7 @@ class DM3(object):
 
     @property
     def thumbnaildata_old(self):
-        """Returns thumbnail data as numpy.array"""
+        """Returns thumbnail data as numpy.array through PIL [deprecated]"""
         return im2ar(self.thumbnail)
 
     @property
@@ -633,7 +678,7 @@ class DM3(object):
         tn_width = int( self.tags["%s.ImageData.Dimensions.0" % tag_root] )
         tn_height = int( self.tags["%s.ImageData.Dimensions.1" % tag_root] )
 
-        if self.debug > 0:
+        if self._debug > 0:
             print("Notice: tn data in %s starts at %s" % (
                 os.path.split(self._filename)[1], hex(tn_offset)
                 ))
@@ -673,7 +718,7 @@ class DM3(object):
         # - save tn file
         try:
             self.thumbnail.save(tn_path, 'PNG')
-            if self.debug > 0:
+            if self._debug > 0:
                 print("Thumbnail saved as '%s'." % tn_path)
         except:
             print("Warning: could not save thumbnail.")
@@ -699,37 +744,31 @@ class DM3(object):
         tag_root = 'root.ImageList.1'
         data_offset = int( self.tags["%s.ImageData.Data.Offset" % tag_root] )
         data_size = int( self.tags["%s.ImageData.Data.Size" % tag_root] )
-        data_type = int( self.tags["%s.ImageData.DataType" % tag_root] )
-        im_width = int( self.tags["%s.ImageData.Dimensions.0" % tag_root] )
-        im_height = int( self.tags["%s.ImageData.Dimensions.1" % tag_root] )
-        try:
-            self.im_depth = int( self.tags['root.ImageList.1.ImageData.Dimensions.2'] )
-        except KeyError:
-            self.im_depth = 1        
+        data_type = self._data_type
+        im_width = self._im_width
+        im_height = self._im_height
+        im_depth = self._im_depth
 
-        if self.debug > 0:
+        if self._debug > 0:
             print("Notice: image data in %s starts at %s" % (
                 os.path.split(self._filename)[1], hex(data_offset)
                 ))
-            print("Notice: image size: %sx%s px" % (im_width, im_height))
-            if self.im_depth>1:
-                print("Notice: %s image stack" % (self.im_depth))
 			
         # check if image DataType is implemented, then read
         if data_type in dataTypesDec:
             decoder = dataTypesDec[data_type]
-            if self.debug > 0:
+            if self._debug > 0:
                 print("Notice: image data type: %s ('%s'), read as %s" % (
                     data_type, dataTypes[data_type], decoder
                     ))
                 t1 = time.time()
             self._f.seek( data_offset )
             rawdata = self._f.read(data_size)
-            im = Image.fromstring( 'F', (im_width, im_height*self.im_depth),
+            im = Image.fromstring( 'F', (im_width, im_height*im_depth),
                                     rawdata, 'raw', decoder )
-            if self.debug > 0:
+            if self._debug > 0:
                 t2 = time.time()
-                print("| read image data: %.3g s" % (t2-t1))
+                print("| read image data as PIL Image: %.3g s" % (t2-t1))
         else:
             raise Exception(
                 "Cannot extract image data from %s: unimplemented DataType (%s:%s)." %
@@ -748,8 +787,8 @@ class DM3(object):
 
     @property
     def imagedata_old(self):
-        """Extracts image data as numpy.array"""
-        return im2ar(self.image, numImages=self.im_depth)
+        """Extracts image data as numpy.array through PIL [deprecated]"""
+        return im2ar(self.image, numImages=self._im_depth)
 
     @property
     def imagedata(self):
@@ -771,26 +810,20 @@ class DM3(object):
         tag_root = 'root.ImageList.1'
         data_offset = int( self.tags["%s.ImageData.Data.Offset" % tag_root] )
         data_size = int( self.tags["%s.ImageData.Data.Size" % tag_root] )
-        data_type = int( self.tags["%s.ImageData.DataType" % tag_root] )
-        im_width = int( self.tags["%s.ImageData.Dimensions.0" % tag_root] )
-        im_height = int( self.tags["%s.ImageData.Dimensions.1" % tag_root] )
-        try:
-            im_depth = int( self.tags['root.ImageList.1.ImageData.Dimensions.2'] )
-        except KeyError:
-            im_depth = 1        
+        data_type = self._data_type
+        im_width = self._im_width
+        im_height = self._im_height
+        im_depth = self._im_depth
 
-        if self.debug > 0:
+        if self._debug > 0:
             print("Notice: image data in %s starts at %s" % (
                 os.path.split(self._filename)[1], hex(data_offset)
                 ))
-            print("Notice: image size: %sx%s px" % (im_width, im_height))
-            if im_depth>1:
-                print("Notice: %s-image stack" % (im_depth))
 
         # check if image DataType is implemented, then read
         if data_type in dT_str:
             np_dt = numpy.dtype( dT_str[data_type] )
-            if self.debug > 0:
+            if self._debug > 0:
                 print("Notice: image data type: %s ('%s'), read as %s" % (
                     data_type, dataTypes[data_type], np_dt
                     ))
@@ -805,7 +838,7 @@ class DM3(object):
                 ima = ima.reshape(im_depth, im_height, im_width)
             else:
                 ima = ima.reshape(im_height, im_width)
-            if self.debug > 0:
+            if self._debug > 0:
                 t2 = time.time()
                 print("| read image data as array: %.3g s" % (t2-t1))
         else:
@@ -848,7 +881,7 @@ class DM3(object):
             unit = 'micron'
         else:
             unit = unit.encode('ascii')
-        if self.debug > 0:
+        if self._debug > 0:
             print("pixel size = %s %s" % (pixel_size, unit))
         return (pixel_size, unit)
 
