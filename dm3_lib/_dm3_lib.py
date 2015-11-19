@@ -630,100 +630,6 @@ class DM3(object):
         # return experiment information
         return infoDict
 
-
-    @property
-    def thumbnail(self):
-        """Returns thumbnail as PIL Image."""
-        # get thumbnail
-        tag_root = 'root.ImageList.0'
-        tn_size = int( self.tags["%s.ImageData.Data.Size" % tag_root] )
-        tn_offset = int( self.tags["%s.ImageData.Data.Offset" % tag_root] )
-        tn_width = int( self.tags["%s.ImageData.Dimensions.0" % tag_root] )
-        tn_height = int( self.tags["%s.ImageData.Dimensions.1" % tag_root] )
-
-        if self._debug > 0:
-            print("Notice: tn data in %s starts at %s" % (
-                os.path.split(self._filename)[1], hex(tn_offset)
-                ))
-            print("Notice: tn size: %sx%s px" % (tn_width, tn_height))
-
-        if (tn_width*tn_height*4) != tn_size:
-            raise Exception("Cannot extract thumbnail from %s"
-                            % os.path.split(self._filename)[1])
-        else:
-            self._f.seek( tn_offset )
-            rawdata = self._f.read(tn_size)
-            # - read as 32-bit LE unsigned integer
-            tn = Image.fromstring( 'F', (tn_width, tn_height), rawdata,
-                                   'raw', 'F;32' )
-            # - rescale and convert px data
-            tn = tn.point(lambda x: x * (1./65536) + 0)
-            tn = tn.convert('L')
-        # - return image
-        return tn
-
-    @property
-    def thumbnaildata_old(self):
-        """Returns thumbnail data as numpy.array through PIL [deprecated]"""
-        return im2ar(self.thumbnail)
-
-    @property
-    def thumbnaildata(self):
-        """Fetch thumbnail image data as numpy.array (w/o using PIL)"""
- 
-        # get useful thumbnail Tags
-        tag_root = 'root.ImageList.0'
-        tn_size = int( self.tags["%s.ImageData.Data.Size" % tag_root] )
-        tn_offset = int( self.tags["%s.ImageData.Data.Offset" % tag_root] )
-        tn_width = int( self.tags["%s.ImageData.Dimensions.0" % tag_root] )
-        tn_height = int( self.tags["%s.ImageData.Dimensions.1" % tag_root] )
-
-        if self._debug > 0:
-            print("Notice: tn data in %s starts at %s" % (
-                os.path.split(self._filename)[1], hex(tn_offset)
-                ))
-            print("Notice: tn size: %sx%s px" % (tn_width, tn_height))
-
-        # get thumbnail data
-        if (tn_width*tn_height*4) == tn_size:
-            self._f.seek(tn_offset)
-            rawtndata = self._f.read(tn_size)
-            print('## rawdata:', len(rawtndata))
-           # - read as 32-bit LE unsigned integer
-            np_dt_tn = numpy.dtype('<u4')
-            tndata = numpy.fromstring(rawtndata, dtype=np_dt_tn)
-            print('## tndata:', len(tndata))
-            tndata = tndata.reshape(tn_height, tn_width)
-            # - rescale and convert to integer
-            tndata = tndata/65536. + 0.
-            tndata = tndata.astype(int)
-            # - return thumbnail data
-            return tndata
-        else:
-            raise Exception("Cannot extract thumbnail from %s"
-                            % os.path.split(self._filename)[1])
-
-
-    def makePNGThumbnail(self, tn_file=''):
-        """Save thumbnail as PNG file."""
-        # - cleanup name
-        if tn_file == '':
-            tn_path = os.path.join('./',
-                                   os.path.split(self.filename)[1]+'.tn.png')
-        else:
-            if os.path.splitext(tn_file)[1] != '.png':
-                tn_path = os.path.splitext(tn_file)[0] + '.png'
-            else:
-                tn_path = tn_file
-        # - save tn file
-        try:
-            self.thumbnail.save(tn_path, 'PNG')
-            if self._debug > 0:
-                print("Thumbnail saved as '%s'." % tn_path)
-        except:
-            print("Warning: could not save thumbnail.")
-
-
     @property
     def image(self):
         """Extracts image data as PIL Image"""
@@ -868,7 +774,6 @@ class DM3(object):
         """Returns display range (cuts)."""
         return self.contrastlimits
 
-
     @property
     def pxsize(self):
         """Returns pixel size and unit."""
@@ -884,6 +789,97 @@ class DM3(object):
         if self._debug > 0:
             print("pixel size = %s %s" % (pixel_size, unit))
         return (pixel_size, unit)
+
+    @property
+    def thumbnail(self):
+        """Returns thumbnail as PIL Image."""
+        # get thumbnail
+        tag_root = 'root.ImageList.0'
+        tn_size = int( self.tags["%s.ImageData.Data.Size" % tag_root] )
+        tn_offset = int( self.tags["%s.ImageData.Data.Offset" % tag_root] )
+        tn_width = int( self.tags["%s.ImageData.Dimensions.0" % tag_root] )
+        tn_height = int( self.tags["%s.ImageData.Dimensions.1" % tag_root] )
+
+        if self._debug > 0:
+            print("Notice: tn data in %s starts at %s" % (
+                os.path.split(self._filename)[1], hex(tn_offset)
+                ))
+            print("Notice: tn size: %sx%s px" % (tn_width, tn_height))
+
+        if (tn_width*tn_height*4) != tn_size:
+            raise Exception("Cannot extract thumbnail from %s"
+                            % os.path.split(self._filename)[1])
+        else:
+            self._f.seek( tn_offset )
+            rawdata = self._f.read(tn_size)
+            # - read as 32-bit LE unsigned integer
+            tn = Image.fromstring( 'F', (tn_width, tn_height), rawdata,
+                                   'raw', 'F;32' )
+            # - rescale and convert px data
+            tn = tn.point(lambda x: x * (1./65536) + 0)
+            tn = tn.convert('L')
+        # - return image
+        return tn
+
+    @property
+    def thumbnaildata_old(self):
+        """Returns thumbnail data as numpy.array through PIL [deprecated]"""
+        return im2ar(self.thumbnail)
+
+    @property
+    def thumbnaildata(self):
+        """Fetch thumbnail image data as numpy.array (w/o using PIL)"""
+ 
+        # get useful thumbnail Tags
+        tag_root = 'root.ImageList.0'
+        tn_size = int( self.tags["%s.ImageData.Data.Size" % tag_root] )
+        tn_offset = int( self.tags["%s.ImageData.Data.Offset" % tag_root] )
+        tn_width = int( self.tags["%s.ImageData.Dimensions.0" % tag_root] )
+        tn_height = int( self.tags["%s.ImageData.Dimensions.1" % tag_root] )
+
+        if self._debug > 0:
+            print("Notice: tn data in %s starts at %s" % (
+                os.path.split(self._filename)[1], hex(tn_offset)
+                ))
+            print("Notice: tn size: %sx%s px" % (tn_width, tn_height))
+
+        # get thumbnail data
+        if (tn_width*tn_height*4) == tn_size:
+            self._f.seek(tn_offset)
+            rawtndata = self._f.read(tn_size)
+            print('## rawdata:', len(rawtndata))
+           # - read as 32-bit LE unsigned integer
+            np_dt_tn = numpy.dtype('<u4')
+            tndata = numpy.fromstring(rawtndata, dtype=np_dt_tn)
+            print('## tndata:', len(tndata))
+            tndata = tndata.reshape(tn_height, tn_width)
+            # - rescale and convert to integer
+            tndata = tndata/65536. + 0.
+            tndata = tndata.astype(int)
+            # - return thumbnail data
+            return tndata
+        else:
+            raise Exception("Cannot extract thumbnail from %s"
+                            % os.path.split(self._filename)[1])
+
+    def makePNGThumbnail(self, tn_file=''):
+        """Save thumbnail as PNG file."""
+        # - cleanup name
+        if tn_file == '':
+            tn_path = os.path.join('./',
+                                   os.path.split(self.filename)[1]+'.tn.png')
+        else:
+            if os.path.splitext(tn_file)[1] != '.png':
+                tn_path = os.path.splitext(tn_file)[0] + '.png'
+            else:
+                tn_path = tn_file
+        # - save tn file
+        try:
+            self.thumbnail.save(tn_path, 'PNG')
+            if self._debug > 0:
+                print("Thumbnail saved as '%s'." % tn_path)
+        except:
+            print("Warning: could not save thumbnail.")
 
 
 ## MAIN ##
