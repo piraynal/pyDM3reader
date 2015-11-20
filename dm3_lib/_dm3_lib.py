@@ -15,7 +15,6 @@
 from __future__ import print_function
 
 import os
-import time
 import struct
 
 from codecs import utf_16_le_decode
@@ -466,7 +465,6 @@ class DM3(object):
         """DM3 object: parses DM3 file."""
 
         ## initialize variables ##
-        self._debug = debug
         self._outputcharset = DEFAULTCHARSET
         self._filename = filename
         self._chosenImage = 1
@@ -483,8 +481,6 @@ class DM3(object):
         self._storedTags = []
         self._tagDict = {}
 
-        if self._debug > 0:
-            t1 = time.time()
         isDM3 = True
         ## read header (first 3 4-byte int)
         # get version
@@ -529,8 +525,6 @@ class DM3(object):
             self._im_depth = 1        
 
         if self._debug > 0:
-            t2 = time.time()
-            print("| parse DM3 file: %.3g s" % (t2-t1))
             print("Notice: image size: %sx%s px" % (self._im_width, self._im_height))
             if self._im_depth>1:
                 print("Notice: %s image stack" % (self._im_depth))
@@ -667,14 +661,10 @@ class DM3(object):
                 print("Notice: image data type: %s ('%s'), read as %s" % (
                     data_type, dataTypes[data_type], decoder
                     ))
-                t1 = time.time()
             self._f.seek( data_offset )
             rawdata = self._f.read(data_size)
             im = Image.fromstring( 'F', (im_width, im_height*im_depth),
                                     rawdata, 'raw', decoder )
-            if self._debug > 0:
-                t2 = time.time()
-                print("| read image data as PIL Image: %.3g s" % (t2-t1))
         else:
             raise Exception(
                 "Cannot extract image data from %s: unimplemented DataType (%s:%s)." %
@@ -733,7 +723,6 @@ class DM3(object):
                 print("Notice: image data type: %s ('%s'), read as %s" % (
                     data_type, dataTypes[data_type], np_dt
                     ))
-                t1 = time.time()
             self._f.seek( data_offset )
             # - fetch image data
             rawdata = self._f.read(data_size)
@@ -744,9 +733,6 @@ class DM3(object):
                 ima = ima.reshape(im_depth, im_height, im_width)
             else:
                 ima = ima.reshape(im_height, im_width)
-            if self._debug > 0:
-                t2 = time.time()
-                print("| read image data as array: %.3g s" % (t2-t1))
         else:
             raise Exception(
                 "Cannot extract image data from %s: unimplemented DataType (%s:%s)." %
@@ -759,6 +745,7 @@ class DM3(object):
             ima[ima>0] = 1
 
         return ima
+
 
     @property
     def Image(self):
