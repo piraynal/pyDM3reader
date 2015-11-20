@@ -24,7 +24,7 @@ from scipy.misc import fromimage, imsave
 
 import numpy
 
-__all__ = ["DM3", "VERSION"]
+__all__ = ["DM3", "VERSION", "SUPPORTED_DATA_TYPES"]
 
 VERSION = '1.2dev'
 
@@ -184,6 +184,10 @@ dataTypes = {
     36: 'UNSIGNED_INT64_DATA',
     37: 'LAST_DATA',
     }
+
+## supported Data Types
+dT_supported = [1, 2, 6, 7, 9, 10, 11, 14]
+SUPPORTED_DATA_TYPES = {i: dataTypes[i] for i in dT_supported}
 
 ## other constants ##
 IMGLIST = "root.ImageList."
