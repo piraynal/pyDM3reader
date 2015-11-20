@@ -631,8 +631,8 @@ class DM3(object):
         return infoDict
 
     @property
-    def image(self):
-        """Extracts image data as PIL Image"""
+    def Image_old(self):
+        """Extracts image data as PIL Image [deprecated]"""
 
         # PIL "raw" decoder modes for the various image dataTypes
         dataTypesDec = {
@@ -694,7 +694,7 @@ class DM3(object):
     @property
     def imagedata_old(self):
         """Extracts image data as numpy.array through PIL [deprecated]"""
-        return im2ar(self.image, numImages=self._im_depth)
+        return im2ar(self.Image_old, numImages=self._im_depth)
 
     @property
     def imagedata(self):
@@ -756,9 +756,62 @@ class DM3(object):
         # if image dataType is BINARY, binarize image
         # (i.e., px_value>0 is True)
         if data_type == 14:
-            ima = (ima > 0) * 1
+            ima[ima>0] = 1
 
         return ima
+
+    @property
+    def Image(self):
+        """Returns image data as PIL Image"""
+
+        # define PIL Image mode for the various (supported) image dataTypes,
+        # among:
+        # - '1': 1-bit pixels, black and white, stored as 8-bit pixels
+        # - 'L': 8-bit pixels, gray levels
+        # - 'I': 32-bit integer pixels
+        # - 'F': 32-bit floating point pixels
+        dT_modes = {
+            1: 'I',     # 16-bit LE signed integer
+            2: 'F',     # 32-bit LE floating point
+            6: 'L',     # 8-bit unsigned integer
+            7: 'I',     # 32-bit LE signed integer
+            9: 'I',     # 8-bit signed integer
+            10: 'I',    # 16-bit LE unsigned integer
+            11: 'I',    # 32-bit LE unsigned integer
+            14: 'L',    # "binary"
+            }
+        
+        # define loaded array dtype if has to be fixed to match Image mode
+        dT_newdtypes = {
+            1:  'int32',      # 16-bit LE integer to 32-bit int
+            2:  'float32',    # 32-bit LE float to 32-bit float
+            9:  'int32',      # 8-bit signed integer to 32-bit int
+            10: 'int32',      # 16-bit LE u. integer to 32-bit int
+            }   
+
+        # get relevant Tags
+        data_type = self._data_type
+        im_width = self._im_width
+        im_height = self._im_height    
+        im_depth = self._im_depth
+
+        # fetch image data array
+        ima = self.imagedata
+        # assign Image mode
+        mode_ = dT_modes[data_type]
+
+        # reshape array if image stack
+        if im_depth > 1:
+            ima = ima.reshape(im_height*im_depth, im_width)
+
+        # load image data array into Image object (recast array if necessary)
+        if data_type in dT_newdtypes:
+            im = Image.fromarray(ima.astype(dT_newdtypes[data_type]),mode_)
+        else:
+            im = Image.fromarray(ima,mode_)
+
+        return im
+
 
     @property
     def contrastlimits(self):
