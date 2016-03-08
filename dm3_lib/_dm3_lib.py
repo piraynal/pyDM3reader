@@ -668,7 +668,7 @@ class DM3(object):
                     ))
             self._f.seek( data_offset )
             rawdata = self._f.read(data_size)
-            im = Image.fromstring( 'F', (im_width, im_height*im_depth),
+            im = Image.frombytes( 'F', (im_width, im_height*im_depth),
                                     rawdata, 'raw', decoder )
         else:
             raise Exception(
@@ -858,7 +858,7 @@ class DM3(object):
             self._f.seek( tn_offset )
             rawdata = self._f.read(tn_size)
             # - read as 32-bit LE unsigned integer
-            tn = Image.fromstring( 'F', (tn_width, tn_height), rawdata,
+            tn = Image.frombytes( 'F', (tn_width, tn_height), rawdata,
                                    'raw', 'F;32' )
             # - rescale and convert px data
             tn = tn.point(lambda x: x * (1./65536) + 0)
