@@ -469,6 +469,7 @@ class DM3(object):
         """DM3 object: parses DM3 file."""
 
         ## initialize variables ##
+        self._debug = debug
         self._outputcharset = DEFAULTCHARSET
         self._filename = filename
         self._chosenImage = 1
