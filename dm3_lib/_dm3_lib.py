@@ -14,6 +14,7 @@
 
 from __future__ import print_function
 
+import sys
 import os
 import struct
 
@@ -30,6 +31,15 @@ VERSION = '1.2dev'
 
 debugLevel = 0   # 0=none, 1-3=basic, 4-5=simple, 6-10 verbose
 
+## check for Python version
+PY3 = (sys.version_info[0] == 3)
+
+## - adjust for Python3
+if PY3:
+    # unicode() deprecated in Python 3
+    unicode_str = str
+else:
+    unicode_str = unicode
 
 ### utility fuctions ###
 # Image to Array
@@ -460,8 +470,8 @@ class DM3(object):
             print("  -- name:  ", tagName)
             print("  -- value: ", tagValue, type(tagValue))
         # - convert tag value to unicode if not already unicode object
-        self._storedTags.append( tagName + " = " + unicode(tagValue) )
-        self._tagDict[tagName] = unicode(tagValue)
+        self._storedTags.append( tagName + " = " + unicode_str(tagValue) )
+        self._tagDict[tagName] = unicode_str(tagValue)
 
     ### END utility functions ###
 
