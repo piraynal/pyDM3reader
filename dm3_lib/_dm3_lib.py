@@ -18,8 +18,6 @@ import sys
 import os
 import struct
 
-from codecs import utf_16_le_decode
-
 from PIL import Image
 from scipy.misc import fromimage, imsave
 
@@ -356,9 +354,9 @@ class DM3(object):
         else:
             if ( debugLevel > 3 ):
                 print("rSD @ " + str(self._f.tell()) + "/" + hex(self._f.tell()) +" :", end=' ')
-            ## !!! *Unicode* string (UTF-16)... convert to Python unicode str
             rString = readString(self._f, stringSize)
-            rString = utf_16_le_decode(rString)[0]
+            # /!\ UTF-16 unicode string => convert to Python unicode str
+            rString = rString.decode('utf-16-le')
             if ( debugLevel > 3 ):
                 print(rString + "   <"  + repr( rString ) + ">")
         if ( debugLevel > 1 ):
