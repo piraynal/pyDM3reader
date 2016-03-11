@@ -19,7 +19,6 @@ import os
 import struct
 
 from PIL import Image
-from scipy.misc import fromimage, imsave
 
 import numpy
 
@@ -40,25 +39,6 @@ else:
     unicode_str = unicode
 
 ### utility fuctions ###
-# Image to Array
-def im2ar( image_, numImages=1 ):
-    """Convert PIL Image to Numpy array [deprecated]."""
-    if image_.mode in ('L', 'I', 'F'):
-        # Warning: only works with PIL.Image.Image whose mode is 'L', 'I' or 'F'
-        #          => error if mode == 'I;16' for instance
-        array_ = fromimage( image_ )
-        if numImages==1:
-            return array_
-        elif numImages>1:
-            return numpy.vsplit( array_, numImages )
-#    else:
-#        return False
-
-# Array to image file
-def ar2imfile(filename, array_):
-    """Save image in Numpy array to file."""
-    imsave(filename, array_)
-
 
 ### binary data reading functions ###
 
@@ -638,70 +618,8 @@ class DM3(object):
         return infoDict
 
     @property
-    def Image_old(self):
-        """Extracts image data as PIL Image [deprecated]"""
-
-        # PIL "raw" decoder modes for the various image dataTypes
-        dataTypesDec = {
-            1: 'F;16S',    #16-bit LE signed integer
-            2: 'F;32F',    #32-bit LE floating point
-            6: 'F;8',      #8-bit unsigned integer
-            7: 'F;32S',    #32-bit LE signed integer
-            9: 'F;8S',     #8-bit signed integer
-            10: 'F;16',    #16-bit LE unsigned integer
-            11: 'F;32',    #32-bit LE unsigned integer
-            14: 'F;8',     #binary
-            }
-
-        # get relevant Tags
-        tag_root = 'root.ImageList.1'
-        data_offset = int( self.tags["%s.ImageData.Data.Offset" % tag_root] )
-        data_size = int( self.tags["%s.ImageData.Data.Size" % tag_root] )
-        data_type = self._data_type
-        im_width = self._im_width
-        im_height = self._im_height
-        im_depth = self._im_depth
-
-        if self._debug > 0:
-            print("Notice: image data in %s starts at %s" % (
-                os.path.split(self._filename)[1], hex(data_offset)
-                ))
-			
-        # check if image DataType is implemented, then read
-        if data_type in dataTypesDec:
-            decoder = dataTypesDec[data_type]
-            if self._debug > 0:
-                print("Notice: image data type: %s ('%s'), read as %s" % (
-                    data_type, dataTypes[data_type], decoder
-                    ))
-            self._f.seek( data_offset )
-            rawdata = self._f.read(data_size)
-            im = Image.frombytes( 'F', (im_width, im_height*im_depth),
-                                    rawdata, 'raw', decoder )
-        else:
-            raise Exception(
-                "Cannot extract image data from %s: unimplemented DataType (%s:%s)." %
-                (os.path.split(self._filename)[1], data_type, dataTypes[data_type])
-                )
-
-        # if image dataType is BINARY, binarize image
-        # (i.e., px_value>0 is True)
-        if data_type == 14:
-            # convert Image to 'L' to apply point operation
-            im = im.convert('L')
-            # binarize
-            im = im.point(lambda v: v > 0 or False)
-
-        return im
-
-    @property
-    def imagedata_old(self):
-        """Extracts image data as numpy.array through PIL [deprecated]"""
-        return im2ar(self.Image_old, numImages=self._im_depth)
-
-    @property
     def imagedata(self):
-        """Extracts image data as numpy.array (w/o using PIL)"""
+        """Extracts image data as numpy.array"""
 
         # numpy dtype strings associated to the various image dataTypes
         dT_str = {
@@ -843,8 +761,9 @@ class DM3(object):
             print("pixel size = %s %s" % (pixel_size, unit))
         return (pixel_size, unit)
 
+
     @property
-    def thumbnail(self):
+    def tnImage(self):
         """Returns thumbnail as PIL Image."""
         # get thumbnail
         tag_root = 'root.ImageList.0'
@@ -875,13 +794,8 @@ class DM3(object):
         return tn
 
     @property
-    def thumbnaildata_old(self):
-        """Returns thumbnail data as numpy.array through PIL [deprecated]"""
-        return im2ar(self.thumbnail)
-
-    @property
     def thumbnaildata(self):
-        """Fetch thumbnail image data as numpy.array (w/o using PIL)"""
+        """Fetch thumbnail image data as numpy.array"""
  
         # get useful thumbnail Tags
         tag_root = 'root.ImageList.0'
