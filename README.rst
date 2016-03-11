@@ -29,12 +29,12 @@ Dependencies
 
  - Pillow (fork of Python Imaging Library)
  - NumPy
- - SciPy
 
 Optional Dependencies
 ---------------------
 
  - Matplotlib
+ - SciPy 
  - IPython IDE
 
 

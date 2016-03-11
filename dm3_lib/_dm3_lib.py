@@ -24,7 +24,7 @@ import numpy
 
 __all__ = ["DM3", "VERSION", "SUPPORTED_DATA_TYPES"]
 
-VERSION = '1.2dev'
+VERSION = '1.2'
 
 debugLevel = 0   # 0=none, 1-3=basic, 4-5=simple, 6-10 verbose
 
@@ -851,5 +851,5 @@ class DM3(object):
 
 ## MAIN ##
 if __name__ == '__main__':
-    print("DM3lib %s" % VERSION)
+    print("dm3_lib %s" % VERSION)
 
