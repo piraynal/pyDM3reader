@@ -1,5 +1,5 @@
 #!/usr/bin/python
-"""Python module for parsing GATAN DM3 files"""
+"""Python module for parsing GATAN DM3 and DM4 files"""
 
 ################################################################################
 ## Python script for parsing GATAN DM3 (DigitalMicrograph) files
@@ -15,16 +15,14 @@
 from __future__ import print_function
 
 import sys
-import os
+import os.path
 import struct
-
-from PIL import Image
-
 import numpy
+from PIL import Image
 
 __all__ = ["DM3", "VERSION", "SUPPORTED_DATA_TYPES"]
 
-VERSION = '1.2.1dev'
+VERSION = '1.5dev'
 
 debugLevel = 0   # 0=none, 1-3=basic, 4-5=simple, 6-10 verbose
 
@@ -42,20 +40,25 @@ else:
 
 ### binary data reading functions ###
 
-def readLong(f):
-    """Read 4 bytes as integer in file f"""
-    read_bytes = f.read(4)
-    return struct.unpack('>l', read_bytes)[0]
-
-def readShort(f):
-    """Read 2 bytes as integer in file f"""
-    read_bytes = f.read(2)
-    return struct.unpack('>h', read_bytes)[0]
-
 def readByte(f):
     """Read 1 byte as integer in file f"""
     read_bytes = f.read(1)
     return struct.unpack('>b', read_bytes)[0]
+
+def readShort(f):
+    """Read 2 bytes as BE integer in file f"""
+    read_bytes = f.read(2)
+    return struct.unpack('>h', read_bytes)[0]
+
+def readLong(f):
+    """Read 4 bytes as BE integer in file f"""
+    read_bytes = f.read(4)
+    return struct.unpack('>l', read_bytes)[0]
+
+def readLongLong(f):
+    """Read 8 bytes as BE integer in file f"""
+    read_bytes = f.read(8)
+    return struct.unpack('>q', read_bytes)[0]
 
 def readBool(f):
     """Read 1 byte as boolean in file f"""
@@ -474,32 +477,47 @@ class DM3(object):
         self._storedTags = []
         self._tagDict = {}
 
-        isDM3 = True
-        ## read header (first 3 4-byte int)
+        ## parse header
+        isDM3,isDM4 = (False, False)
         # get version
         fileVersion = readLong(self._f)
-        if ( fileVersion != 3 ):
-            isDM3 = False
-        # get indicated file size
-        fileSize = readLong(self._f)
+        if (fileVersion == 3):
+            isDM3 = True
+        elif (fileVersion == 4): 
+            isDM4 = True
+        # get size of root tag directory, check consistency
+        fileSize = os.path.getsize(self._filename)
+        if isDM3:
+            rootLen = readLong(self._f)
+            if (rootLen != fileSize - 16):
+                isDM3 = False
+        elif isDM4:
+            rootLen = readLongLong(self._f)
+            if (rootLen != fileSize - 24):
+                isDM4 = False
         # get byte-ordering
         lE = readLong(self._f)
         littleEndian = (lE == 1)
         if not littleEndian:
-            isDM3 = False
-        # check file header, raise Exception if not DM3
-        if not isDM3:
-            raise Exception("%s does not appear to be a DM3 file."
+            isDM3,isDM4 = (False, False)
+            
+        # raise Exception if not DM3 or DM4
+        if not (isDM3 or isDM4):
+            raise Exception("'%s' does not appear to be a DM3/DM4 file."
                             % os.path.split(self._filename)[1])
         elif self._debug > 0:
-            print("%s appears to be a DM3 file" % (self._filename))
+            print("'%s' appears to be a DM%s file" % (self._filename, fileVersion))
 
         if ( debugLevel > 5 or self._debug > 1):
             print("Header info.:")
             print("- file version:", fileVersion)
-            print("- lE:", lE)
+            print("- byte order:", lE)
+            print("- root tag dir. size:", rootLen, "bytes")
             print("- file size:", fileSize, "bytes")
 
+        ##WIP!##
+        sys.exit()
+        
         # set name of root group (contains all data)...
         self._curGroupNameAtLevelX[0] = "root"
         # ... then read it
