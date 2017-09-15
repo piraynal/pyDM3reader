@@ -24,7 +24,7 @@ import numpy
 
 __all__ = ["DM3", "VERSION", "SUPPORTED_DATA_TYPES"]
 
-VERSION = '1.2'
+VERSION = '1.2.1dev'
 
 debugLevel = 0   # 0=none, 1-3=basic, 4-5=simple, 6-10 verbose
 
@@ -593,23 +593,32 @@ class DM3(object):
     def info(self):
         """Extracts useful experiment info from DM3 file."""
         # define useful information
-        tag_root = 'root.ImageList.1'
-        info_keys = {
-            'descrip': "%s.Description" % tag_root,
-            'acq_date': "%s.ImageTags.DataBar.Acquisition Date" % tag_root,
-            'acq_time': "%s.ImageTags.DataBar.Acquisition Time" % tag_root,
-            'name': "%s.ImageTags.Microscope Info.Name" % tag_root,
-            'micro': "%s.ImageTags.Microscope Info.Microscope" % tag_root,
-            'hv': "%s.ImageTags.Microscope Info.Voltage" % tag_root,
-            'mag': "%s.ImageTags.Microscope Info.Indicated Magnification" % tag_root,
-            'mode': "%s.ImageTags.Microscope Info.Operation Mode" % tag_root,
-            'operator': "%s.ImageTags.Microscope Info.Operator" % tag_root,
-            'specimen': "%s.ImageTags.Microscope Info.Specimen" % tag_root,
+        tag_root = 'root.ImageList.1.ImageTags'
+        info_ = {
+            'gms_v': "GMS Version.Created",
+            'gms_v_': "GMS Version.Saved",
+            'device': "Acquisition.Device.Name",
+            'acq_date': "DataBar.Acquisition Date",
+            'acq_time': "DataBar.Acquisition Time",
+            'binning': "DataBar.Binning",
+            'hv': "Microscope Info.Voltage",
+            'hv_f': "Microscope Info.Formatted Voltage",
+            'mag': "Microscope Info.Indicated Magnification",
+            'mag_f': "Microscope Info.Formatted Indicated Mag",
+            'mode': "Microscope Info.Operation Mode",
+            'micro': "Session Info.Microscope",
+            'operator': "Session Info.Operator",
+            'specimen': "Session Info.Specimen",         
+            'name_old': "Microscope Info.Name",
+            'micro_old': "Microscope Info.Microscope",
+            'operator_old': "Microscope Info.Operator",
+            'specimen_old': "Microscope Info.Specimen",
         #    'image_notes': "root.DocumentObjectList.10.Text' # = Image Notes
             }
         # get experiment information
         infoDict = {}
-        for key, tag_name in info_keys.items():
+        for key in info_.keys():
+            tag_name = "%s.%s" % (tag_root, info_[key])
             if tag_name in self.tags:
                 # tags supplied as Python unicode str; convert to chosen charset
                 # (typically latin-1 or utf-8)
