@@ -24,7 +24,7 @@ __all__ = ["DM3", "VERSION", "SUPPORTED_DATA_TYPES"]
 
 VERSION = '1.5dev'
 
-debugLevel = 10   # 0=none, 1-3=basic, 4-5=simple, 6-10 verbose
+debugLevel = 0   # 0=none, 1-3=basic, 4-5=simple, 6-10 verbose
 
 ## check for Python version
 PY3 = (sys.version_info[0] == 3)
@@ -127,7 +127,8 @@ DOUBLE = 7
 BOOLEAN = 8
 CHAR = 9
 OCTET = 10
-LONGLONG = 11    # DM4 only (signed or unsigned?)
+LONGLONG = 11    # DM4 only
+BELONGLONG = 12    # DM4 only
 STRUCT = 15
 STRING = 18
 ARRAY = 20
@@ -136,7 +137,8 @@ ARRAY = 20
 readFunc = {
     SHORT: readLEShort,
     LONG: readLELong,
-    LONGLONG: readLELongLong,
+    LONGLONG: readLELongLong,    # DM4
+    BELONGLONG: readLongLong,    # DM4
     USHORT: readLEUShort,
     ULONG: readLEULong,
     FLOAT: readLEFloat,
@@ -267,8 +269,10 @@ class DM3(object):
         # if DM4 file, get tag data size
         if (self._fileVersion == 4):
             lenTagData = readLongLong(self._f)
-            if ( debugLevel > 1 ):
-                print(str(self._curGroupLevel)+": Tag data size = "+str(lenTagData)+" bytes")
+        else:
+            lenTagData = readLong(self._f)
+        if ( debugLevel > 1 ):
+            print(str(self._curGroupLevel)+": Tag data size = "+str(lenTagData)+" bytes")
         if isData:
             # give it a name
             self._curTagName = self._makeGroupNameString()+"."+tagLabel
@@ -302,7 +306,7 @@ class DM3(object):
             width = 2
         elif eT in (LONG, ULONG, FLOAT):
             width = 4
-        elif eT in (DOUBLE, LONGLONG):
+        elif eT in (DOUBLE, LONGLONG, BELONGLONG):
             width = 8
         else:
             # returns -1 for unrecognised types
