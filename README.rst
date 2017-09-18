@@ -16,19 +16,19 @@ This Python module is a transposition and adaptation of the `DM3_Reader`
 `ImageJ plug-in <http://rsb.info.nih.gov/ij/plugins/DM3_Reader.html>`_ by
 `Greg Jefferis <mailto:jefferis@stanford.edu>`_.
 
-It allows to extract thumbnail, image data and metadata (specimen, operator,
-HV, MAG, etc.) from `GATAN DigitalMicrograph 3` files (it was initially meant
-to be called by a script indexing electron microscope images in a database).
-In particular, it can dump all metadata (“Tags”), pass thumbnail and image
-data as PIL Images or Numpy arrays, as well as save the thumbnail view in a
-PNG file.
+It allows to extract image data, metadata (specimen, operator,
+HV, MAG, etc.) and thumbnail from `GATAN DigitalMicrograph 3` and `4` files
+(it was initially meant to be called by a script indexing electron microscope
+images in a database). In particular, it can dump all metadata (“Tags”), pass
+thumbnail and image data as PIL Images or Numpy arrays, as well as save the
+included thumbnail in a PNG file.
 
 
 Dependencies
 ============
 
+ - Numpy
  - Pillow (fork of Python Imaging Library)
- - NumPy
 
 Optional Dependencies
 ---------------------

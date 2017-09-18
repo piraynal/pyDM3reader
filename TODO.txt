@@ -1,8 +1,44 @@
 TODO file for pyDM3lib
 ======================
 
-- DM4 support
-- support of more image data types
-- ...
+- support of additional image data types...
+  -- 0:  'NULL_DATA',
+  ++ 1:  'SIGNED_INT16_DATA',
+  ++ 2:  'REAL4_DATA',
+  -- 3:  'COMPLEX8_DATA',
+  -- 4:  'OBSELETE_DATA',
+  -- 5:  'PACKED_DATA',
+  ++ 6:  'UNSIGNED_INT8_DATA',
+  ++ 7:  'SIGNED_INT32_DATA',
+  -- 8:  'RGB_DATA',
+  ++ 9:  'SIGNED_INT8_DATA',
+  ++ 10: 'UNSIGNED_INT16_DATA',
+  ++ 11: 'UNSIGNED_INT32_DATA',
+  -- 12: 'REAL8_DATA',
+  -- 13: 'COMPLEX16_DATA',
+  ++ 14: 'BINARY_DATA',
+  -- 15: 'RGB_UINT8_0_DATA',
+  -- 16: 'RGB_UINT8_1_DATA',
+  -- 17: 'RGB_UINT16_DATA',
+  -- 18: 'RGB_FLOAT32_DATA',
+  -- 19: 'RGB_FLOAT64_DATA',
+  -- 20: 'RGBA_UINT8_0_DATA',
+  -- 21: 'RGBA_UINT8_1_DATA',
+  -- 22: 'RGBA_UINT8_2_DATA',
+  -- 23: 'RGBA_UINT8_3_DATA',
+  -- 24: 'RGBA_UINT16_DATA',
+  -- 25: 'RGBA_FLOAT32_DATA',
+  -- 26: 'RGBA_FLOAT64_DATA',
+  -- 27: 'POINT2_SINT16_0_DATA',
+  -- 28: 'POINT2_SINT16_1_DATA',
+  -- 29: 'POINT2_SINT32_0_DATA',
+  -- 30: 'POINT2_FLOAT32_0_DATA',
+  -- 31: 'RECT_SINT16_1_DATA',
+  -- 32: 'RECT_SINT32_1_DATA',
+  -- 33: 'RECT_FLOAT32_1_DATA',
+  -- 34: 'RECT_FLOAT32_0_DATA',
+  -- 35: 'SIGNED_INT64_DATA',
+  -- 36: 'UNSIGNED_INT64_DATA',
+  -- 37: 'LAST_DATA',
 
-+ check against newer IJ DM3_Reader versions
+- check against newer IJ DM3_Reader versions
