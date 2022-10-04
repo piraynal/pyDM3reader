@@ -1,30 +1,28 @@
 #!/usr/bin/python
-"""Python module for parsing GATAN DM3 files"""
+"""Python module for parsing GATAN DM3 and DM4 files"""
 
 ################################################################################
-## Python script for parsing GATAN DM3 (DigitalMicrograph) files
+## Python script for parsing GATAN DM3/DM4 (DigitalMicrograph) files
 ## --
-## based on the DM3_Reader plug-in (v 1.3.4) for ImageJ
-## by Greg Jefferis <jefferis@stanford.edu>
-## http://rsb.info.nih.gov/ij/plugins/DM3_Reader.html
+## based on the DM3_Reader plug-in (v1.3.4) for ImageJ
+## by Greg Jefferis <jefferis@gmail.com>
+## https://imagej.nih.gov/ij/plugins/DM3_Reader.html
 ## --
 ## Python adaptation: Pierre-Ivan Raynal <raynal@univ-tours.fr>
-## http://microscopies.med.univ-tours.fr/
+## https://microscopies.med.univ-tours.fr/
 ################################################################################
 
 from __future__ import print_function
 
 import sys
-import os
+import os.path
 import struct
-
-from PIL import Image
-
 import numpy
+from PIL import Image
 
 __all__ = ["DM3", "VERSION", "SUPPORTED_DATA_TYPES"]
 
-VERSION = '1.2'
+VERSION = '1.5dev'
 
 debugLevel = 0   # 0=none, 1-3=basic, 4-5=simple, 6-10 verbose
 
@@ -42,20 +40,25 @@ else:
 
 ### binary data reading functions ###
 
-def readLong(f):
-    """Read 4 bytes as integer in file f"""
-    read_bytes = f.read(4)
-    return struct.unpack('>l', read_bytes)[0]
-
-def readShort(f):
-    """Read 2 bytes as integer in file f"""
-    read_bytes = f.read(2)
-    return struct.unpack('>h', read_bytes)[0]
-
 def readByte(f):
     """Read 1 byte as integer in file f"""
     read_bytes = f.read(1)
     return struct.unpack('>b', read_bytes)[0]
+
+def readShort(f):
+    """Read 2 bytes as BE integer in file f"""
+    read_bytes = f.read(2)
+    return struct.unpack('>h', read_bytes)[0]
+
+def readLong(f):
+    """Read 4 bytes as BE integer in file f"""
+    read_bytes = f.read(4)
+    return struct.unpack('>l', read_bytes)[0]
+
+def readLongLong(f):
+    """Read 8 bytes as BE integer in file f"""
+    read_bytes = f.read(8)
+    return struct.unpack('>q', read_bytes)[0]
 
 def readBool(f):
     """Read 1 byte as boolean in file f"""
@@ -83,6 +86,11 @@ def readLELong(f):
     read_bytes = f.read(4)
     return struct.unpack('<l', read_bytes)[0]
 
+def readLELongLong(f):
+    """Read 8 bytes as *little endian* integer in file f"""
+    read_bytes = f.read(8)
+    return struct.unpack('<q', read_bytes)[0]
+
 def readLEUShort(f):
     """Read 2 bytes as *little endian* unsigned integer in file f"""
     read_bytes = f.read(2)
@@ -92,6 +100,11 @@ def readLEULong(f):
     """Read 4 bytes as *little endian* unsigned integer in file f"""
     read_bytes = f.read(4)
     return struct.unpack('<L', read_bytes)[0]
+
+def readLEULongLong(f):
+    """Read 8 bytes as *little endian* unsigned integer in file f"""
+    read_bytes = f.read(8)
+    return struct.unpack('<Q', read_bytes)[0]
 
 def readLEFloat(f):
     """Read 4 bytes as *little endian* float in file f"""
@@ -114,6 +127,8 @@ DOUBLE = 7
 BOOLEAN = 8
 CHAR = 9
 OCTET = 10
+LONGLONG = 11    # DM4 only
+BELONGLONG = 12    # DM4 only
 STRUCT = 15
 STRING = 18
 ARRAY = 20
@@ -122,6 +137,8 @@ ARRAY = 20
 readFunc = {
     SHORT: readLEShort,
     LONG: readLELong,
+    LONGLONG: readLELongLong,    # DM4
+    BELONGLONG: readLongLong,    # DM4
     USHORT: readLEUShort,
     ULONG: readLEULong,
     FLOAT: readLEFloat,
@@ -202,6 +219,13 @@ class DM3(object):
             tString += '.' + str( self._curGroupNameAtLevelX[i] )
         return tString
 
+    def _readIntValue(self):
+        if (self._fileVersion == 4):
+            Val = readLongLong(self._f)
+        else:
+            Val = readLong(self._f)
+        return Val
+
     def _readTagGroup(self):
         # go down a level
         self._curGroupLevel += 1
@@ -219,7 +243,7 @@ class DM3(object):
         opened = readByte(self._f)
         isOpen = (opened == 1)
         # number of Tags
-        nTags = readLong(self._f)
+        nTags = self._readIntValue()
         if ( debugLevel > 5):
             print("rTG: Iterating over the", nTags, "tag entries in this group")
         # read Tags
@@ -246,6 +270,11 @@ class DM3(object):
             print("Tag label = "+tagLabel)
         elif ( debugLevel > 1 ):
             print(str(self._curGroupLevel)+": Tag label = "+tagLabel)
+        # if DM4 file, get tag data size
+        if (self._fileVersion == 4):
+            lenTagData = readLongLong(self._f)
+            if ( debugLevel > 1 ):
+                print(str(self._curGroupLevel)+": Tag data size = "+str(lenTagData)+" bytes")
         if isData:
             # give it a name
             self._curTagName = self._makeGroupNameString()+"."+tagLabel
@@ -262,7 +291,7 @@ class DM3(object):
         if ( delim != '%%%%' ):
             raise Exception(hex( self._f.tell() )
                             + ": Tag Type delimiter not %%%%")
-        nInTag = readLong(self._f)
+        nInTag = self._readIntValue()
         self._readAnyData()
         return 1
 
@@ -276,7 +305,7 @@ class DM3(object):
             width = 2
         elif eT in (LONG, ULONG, FLOAT):
             width = 4
-        elif eT == DOUBLE:
+        elif eT in (DOUBLE, LONGLONG, BELONGLONG):
             width = 8
         else:
             # returns -1 for unrecognised types
@@ -287,7 +316,7 @@ class DM3(object):
         ## higher level function dispatching to handling data types
         ## to other functions
         # - get Type category (short, long, array...)
-        encodedType = readLong(self._f)
+        encodedType = self._readIntValue()
         # - calc size of encodedType
         etSize = self._encodedTypeSize(encodedType)
         if ( debugLevel > 5):
@@ -298,7 +327,7 @@ class DM3(object):
             self._storeTag( self._curTagName,
                             self._readNativeData(encodedType, etSize) )
         elif ( encodedType == STRING ):
-            stringSize = readLong(self._f)
+            stringSize = self._readIntValue()
             self._readStringData(stringSize)
         elif ( encodedType == STRUCT ):
             # does not store tags yet
@@ -346,7 +375,7 @@ class DM3(object):
 
     def _readArrayTypes(self):
         # determines the data types in an array data type
-        arrayType = readLong(self._f)
+        arrayType = self._readIntValue()
         itemTypes = []
         if ( arrayType == STRUCT ):
             itemTypes = self._readStructTypes()
@@ -358,9 +387,8 @@ class DM3(object):
 
     def _readArrayData(self, arrayTypes):
         # reads array data
-
-        arraySize = readLong(self._f)
-
+        arraySize = self._readIntValue()
+        
         if ( debugLevel > 3 ):
             print("rArD, " + hex( self._f.tell() ) + ":", end=' ')
             print("Reading array of size = " + str(arraySize))
@@ -403,9 +431,9 @@ class DM3(object):
 
         if ( debugLevel > 3 ):
             print("Reading Struct Types at Pos = " + hex(self._f.tell()))
-
-        structNameLength = readLong(self._f)
-        nFields = readLong(self._f)
+        
+        structNameLength = self._readIntValue()
+        nFields = self._readIntValue()
 
         if ( debugLevel > 5 ):
             print("nFields = ", nFields)
@@ -416,10 +444,10 @@ class DM3(object):
         fieldTypes = []
         nameLength = 0
         for i in range( nFields ):
-            nameLength = readLong(self._f)
+            nameLength = self._readIntValue()
             if ( debugLevel > 9 ):
                 print("{}th nameLength = {}".format(i, nameLength))
-            fieldType = readLong(self._f)
+            fieldType = self._readIntValue()
             fieldTypes.append( fieldType )
 
         return fieldTypes
@@ -474,32 +502,50 @@ class DM3(object):
         self._storedTags = []
         self._tagDict = {}
 
-        isDM3 = True
-        ## read header (first 3 4-byte int)
+        ## parse header
+        isDM3,isDM4 = (False, False)
         # get version
         fileVersion = readLong(self._f)
-        if ( fileVersion != 3 ):
-            isDM3 = False
-        # get indicated file size
-        fileSize = readLong(self._f)
+        if (fileVersion == 3):
+            isDM3 = True
+        elif (fileVersion == 4): 
+            isDM4 = True
+        # get size of root tag directory, check consistency
+        fileSize = os.path.getsize(self._filename)
+        sizeOK = True
+        if isDM3:
+            rootLen = readLong(self._f)
+            if (rootLen != fileSize - 16):
+                sizeOK = False
+        elif isDM4:
+            rootLen = readLongLong(self._f)
+            if (rootLen != fileSize - 24):
+                sizeOK = False
         # get byte-ordering
         lE = readLong(self._f)
         littleEndian = (lE == 1)
         if not littleEndian:
-            isDM3 = False
-        # check file header, raise Exception if not DM3
-        if not isDM3:
-            raise Exception("%s does not appear to be a DM3 file."
+            isDM3,isDM4 = (False, False)
+            
+        # raise Exception if not DM3 or DM4
+        if not (isDM3 or isDM4):
+            raise Exception("'%s' does not appear to be a DM3/DM4 file."
                             % os.path.split(self._filename)[1])
         elif self._debug > 0:
-            print("%s appears to be a DM3 file" % (self._filename))
+            print("'%s' appears to be a DM%s file" % (self._filename, fileVersion))
 
         if ( debugLevel > 5 or self._debug > 1):
-            print("Header info.:")
+            print("Header info. found:")
             print("- file version:", fileVersion)
-            print("- lE:", lE)
+            print("- byte order:", lE)
+            print("- root tag dir. size:", rootLen, "bytes")
             print("- file size:", fileSize, "bytes")
-
+            if not sizeOK:
+                msg = "Warning: file size and root tag dir. size inconsistent"
+                print("+ %s"%msg)
+        
+        self._fileVersion = fileVersion
+        
         # set name of root group (contains all data)...
         self._curGroupNameAtLevelX[0] = "root"
         # ... then read it
@@ -522,6 +568,11 @@ class DM3(object):
             if self._im_depth>1:
                 print("Notice: %s image stack" % (self._im_depth))
 
+    @property
+    def file_version(self):
+        """Returns file format version (i.e., 3 or 4)."""
+        return self._fileVersion
+    
     @property
     def data_type(self):
         """Returns image DataType."""
@@ -593,23 +644,32 @@ class DM3(object):
     def info(self):
         """Extracts useful experiment info from DM3 file."""
         # define useful information
-        tag_root = 'root.ImageList.1'
-        info_keys = {
-            'descrip': "%s.Description" % tag_root,
-            'acq_date': "%s.ImageTags.DataBar.Acquisition Date" % tag_root,
-            'acq_time': "%s.ImageTags.DataBar.Acquisition Time" % tag_root,
-            'name': "%s.ImageTags.Microscope Info.Name" % tag_root,
-            'micro': "%s.ImageTags.Microscope Info.Microscope" % tag_root,
-            'hv': "%s.ImageTags.Microscope Info.Voltage" % tag_root,
-            'mag': "%s.ImageTags.Microscope Info.Indicated Magnification" % tag_root,
-            'mode': "%s.ImageTags.Microscope Info.Operation Mode" % tag_root,
-            'operator': "%s.ImageTags.Microscope Info.Operator" % tag_root,
-            'specimen': "%s.ImageTags.Microscope Info.Specimen" % tag_root,
+        tag_root = 'root.ImageList.1.ImageTags'
+        info_ = {
+            'gms_v': "GMS Version.Created",
+            'gms_v_': "GMS Version.Saved",
+            'device': "Acquisition.Device.Name",
+            'acq_date': "DataBar.Acquisition Date",
+            'acq_time': "DataBar.Acquisition Time",
+            'binning': "DataBar.Binning",
+            'hv': "Microscope Info.Voltage",
+            'hv_f': "Microscope Info.Formatted Voltage",
+            'mag': "Microscope Info.Indicated Magnification",
+            'mag_f': "Microscope Info.Formatted Indicated Mag",
+            'mode': "Microscope Info.Operation Mode",
+            'micro': "Session Info.Microscope",
+            'operator': "Session Info.Operator",
+            'specimen': "Session Info.Specimen",         
+            'name_old': "Microscope Info.Name",
+            'micro_old': "Microscope Info.Microscope",
+            'operator_old': "Microscope Info.Operator",
+            'specimen_old': "Microscope Info.Specimen",
         #    'image_notes': "root.DocumentObjectList.10.Text' # = Image Notes
             }
         # get experiment information
         infoDict = {}
-        for key, tag_name in info_keys.items():
+        for key in info_.keys():
+            tag_name = "%s.%s" % (tag_root, info_[key])
             if tag_name in self.tags:
                 # tags supplied as Python unicode str; convert to chosen charset
                 # (typically latin-1 or utf-8)
