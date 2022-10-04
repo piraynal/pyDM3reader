@@ -2,14 +2,14 @@
 """Python module for parsing GATAN DM3 and DM4 files"""
 
 ################################################################################
-## Python script for parsing GATAN DM3 (DigitalMicrograph) files
+## Python script for parsing GATAN DM3/DM4 (DigitalMicrograph) files
 ## --
-## based on the DM3_Reader plug-in (v 1.3.4) for ImageJ
-## by Greg Jefferis <jefferis@stanford.edu>
-## http://rsb.info.nih.gov/ij/plugins/DM3_Reader.html
+## based on the DM3_Reader plug-in (v1.3.4) for ImageJ
+## by Greg Jefferis <jefferis@gmail.com>
+## https://imagej.nih.gov/ij/plugins/DM3_Reader.html
 ## --
 ## Python adaptation: Pierre-Ivan Raynal <raynal@univ-tours.fr>
-## http://microscopies.med.univ-tours.fr/
+## https://microscopies.med.univ-tours.fr/
 ################################################################################
 
 from __future__ import print_function

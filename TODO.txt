@@ -41,4 +41,6 @@ TODO file for pyDM3lib
   -- 36: 'UNSIGNED_INT64_DATA',
   -- 37: 'LAST_DATA',
 
-- check against newer IJ DM3_Reader versions
+- check against later IJ DM3_Reader versions
+
+- drop Python 2 support eventually
