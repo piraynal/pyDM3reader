@@ -12,7 +12,6 @@
 ## https://microscopies.med.univ-tours.fr/
 ################################################################################
 
-import sys
 import os.path
 import struct
 import numpy
@@ -472,13 +471,12 @@ class DM3(object):
 
     ### END utility functions ###
 
-    def __init__(self, filename, debug=0):
-        """DM3 object: parses DM3 file."""
+    def __init__(self, file_, debug=0):
+        """DM3 object: parses DM3|DM4 file (either a file path or a file-like object)."""
 
         ## initialize variables ##
         self._debug = debug
         self._outputcharset = DEFAULTCHARSET
-        self._filename = filename
         self._chosenImage = 1
         # - track currently read group
         self._curGroupLevel = -1
@@ -487,12 +485,23 @@ class DM3(object):
         # - track current tag
         self._curTagAtLevelX = [ '' for x in range(MAXDEPTH) ]
         self._curTagName = ''
-        # - open file for reading
-        self._f = open( self._filename, 'rb' )
         # - create Tags repositories
         self._storedTags = []
         self._tagDict = {}
 
+        ## get binary data
+        if isinstance(file_, str):
+        # - open file at file path for reading
+            self._filename = file_
+            self._f = open( self._filename, 'rb' )
+        else:
+        # - assume we have been passed a file-like object
+            if file_.mode == 'rb':
+                self._f = file_
+                self._filename = file_.name
+            else:
+                raise Exception("File should be *binary* data.")
+            
         ## parse header
         isDM3,isDM4 = (False, False)
         # get version

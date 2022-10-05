@@ -9,9 +9,9 @@ Author:
 <https://microscopies.med.univ-tours.fr/>`_)
 
 Contributions by
-`Philippe Mallet-Ladeira <mailto:philippe.mallet@cemes.fr>`_
-and 
+`Philippe Mallet-Ladeira <mailto:philippe.mallet@cemes.fr>`_, 
 `Jordan Chess <mailto:jchess@uoregon.edu>`_
+and `Chris Harris <mailto:chris.harris@kitware.com>`_
 
 This Python module is an adaptation and extension of the `DM3_Reader`
 `ImageJ plug-in <http://rsb.info.nih.gov/ij/plugins/DM3_Reader.html>`_ by
