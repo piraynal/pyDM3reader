@@ -42,5 +42,3 @@ TODO file for pyDM3lib
   -- 37: 'LAST_DATA',
 
 - check against later IJ DM3_Reader versions
-
-- drop Python 2 support eventually

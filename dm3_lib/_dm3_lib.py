@@ -1,18 +1,16 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 """Python module for parsing GATAN DM3 and DM4 files"""
 
 ################################################################################
 ## Python script for parsing GATAN DM3/DM4 (DigitalMicrograph) files
 ## --
-## based on the DM3_Reader plug-in (v1.3.4) for ImageJ
+## based on the DM3_Reader plug-in for ImageJ
 ## by Greg Jefferis <jefferis@gmail.com>
 ## https://imagej.nih.gov/ij/plugins/DM3_Reader.html
 ## --
-## Python adaptation: Pierre-Ivan Raynal <raynal@univ-tours.fr>
+## Python version: Pierre-Ivan Raynal <raynal@univ-tours.fr>
 ## https://microscopies.med.univ-tours.fr/
 ################################################################################
-
-from __future__ import print_function
 
 import sys
 import os.path
@@ -22,19 +20,12 @@ from PIL import Image
 
 __all__ = ["DM3", "VERSION", "SUPPORTED_DATA_TYPES"]
 
-VERSION = '1.5dev'
+VERSION = '2.0dev'
 
 debugLevel = 0   # 0=none, 1-3=basic, 4-5=simple, 6-10 verbose
 
-## check for Python version
-PY3 = (sys.version_info[0] == 3)
-
-## - adjust for Python3
-if PY3:
-    # unicode() deprecated in Python 3
-    unicode_str = str
-else:
-    unicode_str = unicode
+## 'str' function renamed for readability
+unicode_str = str
 
 ### utility fuctions ###
 
@@ -813,7 +804,7 @@ class DM3(object):
             self.tags["%s.ImageData.Calibrations.Dimension.0.Scale" % tag_root])
         unit = self.tags["%s.ImageData.Calibrations.Dimension.0.Units" %
                          tag_root]
-        if unit == u'\xb5m':
+        if unit == '\xb5m':
             unit = 'micron'
         else:
             unit = unit.encode('ascii')

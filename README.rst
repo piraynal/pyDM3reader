@@ -28,6 +28,7 @@ images in a database.)
 Dependencies
 ============
 
+ - Python 3
  - Numpy
  - Pillow (fork of Python Imaging Library)
 
