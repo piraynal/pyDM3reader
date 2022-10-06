@@ -22,7 +22,7 @@ from PIL import Image
 
 __all__ = ["DM3", "VERSION", "SUPPORTED_DATA_TYPES"]
 
-VERSION = '1.5dev'
+VERSION = '1.5'
 
 debugLevel = 0   # 0=none, 1-3=basic, 4-5=simple, 6-10 verbose
 
