@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name = "dm3_lib",
-    version = "2.0beta",
+    version = "2.0",
     packages = ['dm3_lib'],
 
     install_requires = ['pillow>=2.3.1', 'numpy'],
@@ -18,9 +18,9 @@ setup(
     description = "Python module for parsing GATAN DM3|DM4 (DigitalMicrograph) files",
     license = "MIT",
     keywords = "GATAN DigitalMicrograph DM3 DM4 Transmission Electron Microscopy",
-    url = "https://microscopies.med.univ-tours.fr/pydm3reader/",
+    url = "https://microscopies.med.univ-tours.fr/dev/",
     classifiers=[
-        'Development Status :: 4 - Beta',
+        'Development Status :: 5 - Production/Stable',
         'Environment :: Console',
         'Intended Audience :: Science/Research',
         'License :: OSI Approved :: MIT License (MIT)'

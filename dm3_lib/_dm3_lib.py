@@ -6,10 +6,10 @@
 ## --
 ## based on the DM3_Reader plug-in for ImageJ
 ## by Greg Jefferis <jefferis@gmail.com>
-## https://imagej.nih.gov/ij/plugins/DM3_Reader.html
+## https://imagej.net/ij/plugins/DM3_Reader.html
 ## --
 ## Python version: Pierre-Ivan Raynal <raynal@univ-tours.fr>
-## https://microscopies.med.univ-tours.fr/
+## https://microscopies.med.univ-tours.fr/dev/
 ################################################################################
 
 import os.path
@@ -19,7 +19,7 @@ from PIL import Image
 
 __all__ = ["DM3", "VERSION", "SUPPORTED_DATA_TYPES"]
 
-VERSION = '2.0dev'
+VERSION = '2.0'
 
 debugLevel = 0   # 0=none, 1-3=basic, 4-5=simple, 6-10 verbose
 
