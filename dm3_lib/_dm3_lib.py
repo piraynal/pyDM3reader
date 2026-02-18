@@ -1,20 +1,17 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 """Python module for parsing GATAN DM3 and DM4 files"""
 
 ################################################################################
 ## Python script for parsing GATAN DM3/DM4 (DigitalMicrograph) files
 ## --
-## based on the DM3_Reader plug-in (v1.3.4) for ImageJ
+## based on the DM3_Reader plug-in for ImageJ
 ## by Greg Jefferis <jefferis@gmail.com>
-## https://imagej.nih.gov/ij/plugins/DM3_Reader.html
+## https://imagej.net/ij/plugins/DM3_Reader.html
 ## --
-## Python adaptation: Pierre-Ivan Raynal <raynal@univ-tours.fr>
-## https://microscopies.med.univ-tours.fr/
+## Python version: Pierre-Ivan Raynal <raynal@univ-tours.fr>
+## https://microscopies.med.univ-tours.fr/dev/
 ################################################################################
 
-from __future__ import print_function
-
-import sys
 import os.path
 import struct
 import numpy
@@ -22,19 +19,12 @@ from PIL import Image
 
 __all__ = ["DM3", "VERSION", "SUPPORTED_DATA_TYPES"]
 
-VERSION = '1.5'
+VERSION = '2.0'
 
 debugLevel = 0   # 0=none, 1-3=basic, 4-5=simple, 6-10 verbose
 
-## check for Python version
-PY3 = (sys.version_info[0] == 3)
-
-## - adjust for Python3
-if PY3:
-    # unicode() deprecated in Python 3
-    unicode_str = str
-else:
-    unicode_str = unicode
+## 'str' function renamed for readability
+unicode_str = str
 
 ### utility fuctions ###
 
@@ -481,13 +471,12 @@ class DM3(object):
 
     ### END utility functions ###
 
-    def __init__(self, filename, debug=0):
-        """DM3 object: parses DM3 file."""
+    def __init__(self, file_, debug=0):
+        """DM3 object: parses DM3|DM4 file (either a file path or a file-like object)."""
 
         ## initialize variables ##
         self._debug = debug
         self._outputcharset = DEFAULTCHARSET
-        self._filename = filename
         self._chosenImage = 1
         # - track currently read group
         self._curGroupLevel = -1
@@ -496,12 +485,23 @@ class DM3(object):
         # - track current tag
         self._curTagAtLevelX = [ '' for x in range(MAXDEPTH) ]
         self._curTagName = ''
-        # - open file for reading
-        self._f = open( self._filename, 'rb' )
         # - create Tags repositories
         self._storedTags = []
         self._tagDict = {}
 
+        ## get binary data
+        if isinstance(file_, str):
+        # - open file at file path for reading
+            self._filename = file_
+            self._f = open( self._filename, 'rb' )
+        else:
+        # - assume we have been passed a file-like object
+            if file_.mode == 'rb':
+                self._f = file_
+                self._filename = file_.name
+            else:
+                raise Exception("File should be *binary* data.")
+            
         ## parse header
         isDM3,isDM4 = (False, False)
         # get version
@@ -718,7 +718,7 @@ class DM3(object):
             # - fetch image data
             rawdata = self._f.read(data_size)
             # - convert raw to numpy array w/ correct dtype
-            ima = numpy.fromstring(rawdata, dtype=np_dt)
+            ima = numpy.frombuffer(rawdata, dtype=np_dt)
             # - reshape to matrix or stack
             if im_depth > 1:
                 ima = ima.reshape(im_depth, im_height, im_width)
@@ -813,7 +813,7 @@ class DM3(object):
             self.tags["%s.ImageData.Calibrations.Dimension.0.Scale" % tag_root])
         unit = self.tags["%s.ImageData.Calibrations.Dimension.0.Units" %
                          tag_root]
-        if unit == u'\xb5m':
+        if unit == '\xb5m':
             unit = 'micron'
         else:
             unit = unit.encode('ascii')
@@ -877,7 +877,7 @@ class DM3(object):
             print('## rawdata:', len(rawtndata))
            # - read as 32-bit LE unsigned integer
             np_dt_tn = numpy.dtype('<u4')
-            tndata = numpy.fromstring(rawtndata, dtype=np_dt_tn)
+            tndata = numpy.frombuffer(rawtndata, dtype=np_dt_tn)
             print('## tndata:', len(tndata))
             tndata = tndata.reshape(tn_height, tn_width)
             # - rescale and convert to integer

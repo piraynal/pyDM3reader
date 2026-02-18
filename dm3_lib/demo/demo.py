@@ -1,6 +1,4 @@
-#!/usr/bin/python
-
-from __future__ import print_function, division
+#!/usr/bin/env python3
 
 import os.path
 import argparse
